@@ -94,3 +94,15 @@ Crear una base sólida para un sistema de generación y resolución de laberinto
 ---
 
 Proyecto en fase de diseño inicial. La estructura puede adaptarse según se avance en la implementación.
+
+## Cuaderno de bitácora
+
+### Día 1
+
+División de trabajo y empezamos fuerte:
+
+```text
+CÉSAR:      Clases Maze y Cell
+
+ALEX:       Parseo (Que lea del config.txt y devuelva un objeto con todos los settings)
+```
