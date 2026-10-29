@@ -106,3 +106,4 @@ CÉSAR:      Clases Maze y Cell
 
 ALEX:       Parseo (Que lea del config.txt y devuelva un objeto con todos los settings)
 ```
+
