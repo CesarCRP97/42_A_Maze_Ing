@@ -95,6 +95,24 @@ Crear una base sólida para un sistema de generación y resolución de laberinto
 
 Proyecto en fase de diseño inicial. La estructura puede adaptarse según se avance en la implementación.
 
+## Módulo Configuration Parser (`config_parser.py`)
+
+El módulo `config_parser.py` procesa y valida el archivo de configuración en formato `KEY=VALUE`, garantizando la integridad de los datos de entrada antes de inicializar la lógica de generación.
+
+### Arquitectura y Funcionamiento
+
+1. **Inmutabilidad de Datos (`MazeConfig`)**:
+   Se utiliza un objeto inmutable mediante `@dataclass(frozen=True)` que almacena la configuración validada. Esto previene modificaciones accidentales de los parámetros durante el ciclo de vida del programa.
+
+2. **Control de Errores Exhaustivo (`ConfigError`)**:
+   Cualquier anomalía (archivos inexistentes, errores de sintaxis, coordenadas inválidas o tipos incompatibles) se captura y relanza bajo la excepción personalizada `ConfigError`. Esto evita fallos inesperados y asegura mensajes claros por consola.
+
+3. **Validaciones**:
+   - Descarta comentarios iniciados por `#` y líneas vacías.
+   - Verifica la presencia obligatoria de las claves `WIDTH`, `HEIGHT`, `ENTRY`, `EXIT`, `OUTPUT_FILE` y `PERFECT`.
+   - Valida que `ENTRY` y `EXIT` estén dentro de los límites ($0 \le x < \text{WIDTH}$, $0 \le y < \text{HEIGHT}$) y no coincidan en la misma celda.
+   - Parsea opcionalmente el parámetro `SEED` para ejecuciones reproducibles.
+
 ## Cuaderno de bitácora
 
 ### Día 1
@@ -107,3 +125,10 @@ CÉSAR:      Clases Maze y Cell
 ALEX:       Parseo (Que lea del config.txt y devuelva un objeto con todos los settings)
 ```
 
+### Día 3
+
+```text
+CÉSAR:      //INSERTA TU MOVIDA
+
+ALEX:       Revisar parseo, Makefile y aprender MLX
+```
