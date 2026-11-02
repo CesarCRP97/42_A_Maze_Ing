@@ -1,10 +1,11 @@
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Tuple
+
+from pydantic import BaseModel, ConfigDict
+
+from mazegen.types import Coordinate
 
 
-@dataclass(frozen=True)
-class MazeConfig:
+class MazeConfig(BaseModel):
     """Stores the validated maze configuration parameters.
 
     Attributes:
@@ -18,10 +19,12 @@ class MazeConfig:
         seed: Optional integer seed for reproducible generation.
     """
 
+    model_config = ConfigDict(frozen=True)
+
     width: int
     height: int
-    entry: Tuple[int, int]
-    exit: Tuple[int, int]
+    entry: Coordinate
+    exit: Coordinate
     output_file: str
     perfect: bool
     seed: int | None = None
@@ -53,7 +56,7 @@ def _parse_bool(value: str) -> bool:
     raise ConfigError(f"Invalid boolean value: '{value}'")
 
 
-def _parse_coords(value: str) -> Tuple[int, int]:
+def _parse_coords(value: str) -> Coordinate:
     """Parse a 'x,y' string into a pair of integer coordinates.
 
     Args:

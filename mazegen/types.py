@@ -1,1 +1,6 @@
-"""Shared types, directions, and coordinates for mazegen."""
+"""Shared types for mazegen."""
+
+from typing import TypeAlias
+
+
+Coordinate: TypeAlias = tuple[int, int]

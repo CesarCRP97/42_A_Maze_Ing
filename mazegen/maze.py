@@ -4,6 +4,8 @@ from enum import IntEnum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from mazegen.types import Coordinate
+
 
 class Direction(IntEnum):
     """Cardinal directions and their hexadecimal output bits."""
@@ -24,7 +26,7 @@ class Direction(IntEnum):
         }[self]
 
     @property
-    def delta(self) -> tuple[int, int]:
+    def delta(self) -> Coordinate:
         """Return the coordinate offset associated with this direction."""
         return {
             Direction.NORTH: (0, -1),
@@ -101,7 +103,7 @@ class Maze(BaseModel):
         x: int,
         y: int,
         direction: Direction,
-    ) -> tuple[int, int] | None:
+    ) -> Coordinate | None:
         """Return adjacent coordinates, or ``None`` at an external border."""
         self.cell_at(x, y)
         delta_x, delta_y = direction.delta
