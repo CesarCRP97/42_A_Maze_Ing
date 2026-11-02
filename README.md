@@ -130,7 +130,15 @@ ALEX:       Parseo (Que lea del config.txt y devuelva un objeto con todos los se
 ### Día 3
 
 ```text
-CÉSAR:      //INSERTA TU MOVIDA
+CÉSAR:      Clase Maze, tests y esqueleto del proyecto
 
 ALEX:       Revisar parseo, Makefile y aprender MLX
+```
+
+### Día 6
+
+```text
+CÉSAR:      Maze Generator + tests del generator
+
+ALEX:       Cambio de MLX a ASCII y gestión de mypy, flake8 y caché
 ```
