@@ -1,5 +1,6 @@
 """Domain models for maze cells and structure."""
 
+from collections import deque
 from enum import IntEnum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -62,6 +63,8 @@ class Maze(BaseModel):
 
     width: int = Field(gt=0)
     height: int = Field(gt=0)
+    entry: Coordinate
+    exit: Coordinate
     cells: list[list[Cell]]
 
     @model_validator(mode="after")
@@ -69,6 +72,17 @@ class Maze(BaseModel):
         """Ensure that the stored cells form the declared rectangular grid."""
         if len(self.cells) != self.height:
             raise ValueError("The number of cell rows must match height.")
+
+        if not self._is_in_bounds(self.entry):
+            raise ValueError(
+                "Entry coordinates must be inside the maze bounds."
+            )
+        if not self._is_in_bounds(self.exit):
+            raise ValueError(
+                "Exit coordinates must be inside the maze bounds."
+            )
+        if self.entry == self.exit:
+            raise ValueError("Entry and exit coordinates must be distinct.")
 
         for y, row in enumerate(self.cells):
             if len(row) != self.width:
@@ -78,14 +92,69 @@ class Maze(BaseModel):
                     raise ValueError(
                         "Cell coordinates must match their grid position."
                     )
+
+        if not self._has_closed_external_borders():
+            raise ValueError("External maze borders must remain closed.")
+        if not self._has_symmetric_shared_walls():
+            raise ValueError("Shared walls must agree between adjacent cells.")
+        if not self._has_full_connectivity():
+            raise ValueError(
+                "Every maze cell must be reachable through open passages."
+            )
         return self
+
+    def _is_in_bounds(self, coordinate: Coordinate) -> bool:
+        """Return whether a coordinate belongs to this maze."""
+        x, y = coordinate
+        return 0 <= x < self.width and 0 <= y < self.height
+
+    def _has_closed_external_borders(self) -> bool:
+        """Return whether all walls that face outside the grid are closed."""
+        for y, row in enumerate(self.cells):
+            for x, cell in enumerate(row):
+                for direction in Direction:
+                    if self.neighbor_coordinates(x, y, direction) is None:
+                        if not cell.has_wall(direction):
+                            return False
+        return True
+
+    def _has_symmetric_shared_walls(self) -> bool:
+        """Return whether internal walls agree from both adjacent cells."""
+        for y, row in enumerate(self.cells):
+            for x, cell in enumerate(row):
+                for direction in Direction:
+                    neighbor = self.neighbor_coordinates(x, y, direction)
+                    if neighbor is not None:
+                        neighbor_cell = self.cell_at(*neighbor)
+                        if cell.has_wall(direction) != neighbor_cell.has_wall(
+                            direction.opposite
+                        ):
+                            return False
+        return True
+
+    def _has_full_connectivity(self) -> bool:
+        """Return whether all cells can be reached through open passages."""
+        reachable = {self.entry}
+        pending = deque([self.entry])
+        while pending:
+            x, y = pending.popleft()
+            cell = self.cell_at(x, y)
+            for direction in Direction:
+                neighbor = self.neighbor_coordinates(x, y, direction)
+                if neighbor is not None and not cell.has_wall(direction):
+                    if neighbor not in reachable:
+                        reachable.add(neighbor)
+                        pending.append(neighbor)
+        return len(reachable) == self.width * self.height
 
     @classmethod
     def create(cls, width: int, height: int) -> "Maze":
         """Create a rectangular maze whose cells start fully closed."""
-        return cls(
+        return cls.model_construct(
             width=width,
             height=height,
+            entry=(0, 0),
+            exit=(width - 1, height - 1),
             cells=[
                 [Cell(x=x, y=y) for x in range(width)]
                 for y in range(height)
@@ -123,18 +192,6 @@ class Maze(BaseModel):
 
     def has_coherent_walls(self) -> bool:
         """Check shared-wall symmetry and closed external borders."""
-        for y, row in enumerate(self.cells):
-            for x, cell in enumerate(row):
-                for direction in Direction:
-                    neighbor = self.neighbor_coordinates(x, y, direction)
-                    if neighbor is None:
-                        if not cell.has_wall(direction):
-                            return False
-                        continue
-
-                    neighbor_cell = self.cell_at(*neighbor)
-                    if cell.has_wall(direction) != neighbor_cell.has_wall(
-                        direction.opposite
-                    ):
-                        return False
-        return True
+        return self._has_closed_external_borders() and (
+            self._has_symmetric_shared_walls()
+        )

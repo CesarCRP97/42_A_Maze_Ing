@@ -7,6 +7,15 @@ from pydantic import ValidationError
 from mazegen.maze import Cell, Direction, Maze
 
 
+def connected_row_cells() -> list[Cell]:
+    """Build the smallest valid connected maze grid."""
+    left = Cell(x=0, y=0)
+    right = Cell(x=1, y=0)
+    left.walls.remove(Direction.EAST)
+    right.walls.remove(Direction.WEST)
+    return [left, right]
+
+
 class CellTests(unittest.TestCase):
     def test_new_cell_starts_with_all_four_walls_closed(self) -> None:
         cell = Cell(x=2, y=3)
@@ -16,11 +25,148 @@ class CellTests(unittest.TestCase):
 
 
 class MazeTests(unittest.TestCase):
+    def test_requires_endpoints_for_validated_construction(self) -> None:
+        with self.assertRaises(ValidationError):
+            Maze.model_validate(
+                {"width": 2, "height": 1, "cells": [connected_row_cells()]}
+            )
+
+    def test_rejects_negative_entry_coordinates(self) -> None:
+        with self.assertRaises(ValidationError):
+            Maze(
+                width=2,
+                height=1,
+                entry=(-1, 0),
+                exit=(1, 0),
+                cells=[connected_row_cells()],
+            )
+
+    def test_rejects_a_grid_with_a_wrong_row_count(self) -> None:
+        with self.assertRaises(ValidationError):
+            Maze(
+                width=2,
+                height=2,
+                entry=(0, 0),
+                exit=(1, 1),
+                cells=[connected_row_cells()],
+            )
+
+    def test_rejects_cell_coordinates_that_do_not_match_the_grid(self) -> None:
+        cells = connected_row_cells()
+        cells[0].x = 1
+
+        with self.assertRaises(ValidationError):
+            Maze(
+                width=2,
+                height=1,
+                entry=(0, 0),
+                exit=(1, 0),
+                cells=[cells],
+            )
+
+    def test_rejects_non_positive_dimensions(self) -> None:
+        invalid_dimensions = ((0, 1), (-1, 1), (1, 0), (1, -1))
+        for width, height in invalid_dimensions:
+            with self.subTest(width=width, height=height):
+                with self.assertRaises(ValidationError):
+                    Maze(
+                        width=width,
+                        height=height,
+                        entry=(0, 0),
+                        exit=(1, 0),
+                        cells=[],
+                    )
+
+    def test_rejects_a_grid_with_unreachable_cells(self) -> None:
+        with self.assertRaises(ValidationError):
+            Maze(
+                width=2,
+                height=1,
+                entry=(0, 0),
+                exit=(1, 0),
+                cells=[[Cell(x=0, y=0), Cell(x=1, y=0)]],
+            )
+
+    def test_rejects_asymmetric_shared_walls(self) -> None:
+        cells = connected_row_cells()
+        cells[1].walls.add(Direction.WEST)
+
+        with self.assertRaises(ValidationError):
+            Maze(
+                width=2,
+                height=1,
+                entry=(0, 0),
+                exit=(1, 0),
+                cells=[cells],
+            )
+
+    def test_rejects_an_open_external_border(self) -> None:
+        cells = connected_row_cells()
+        cells[0].walls.remove(Direction.NORTH)
+
+        with self.assertRaises(ValidationError):
+            Maze(
+                width=2,
+                height=1,
+                entry=(0, 0),
+                exit=(1, 0),
+                cells=[cells],
+            )
+
+    def test_rejects_identical_entry_and_exit_coordinates(self) -> None:
+        with self.assertRaises(ValidationError):
+            Maze(
+                width=2,
+                height=1,
+                entry=(0, 0),
+                exit=(0, 0),
+                cells=[connected_row_cells()],
+            )
+
+    def test_rejects_an_out_of_bounds_exit_coordinate(self) -> None:
+        with self.assertRaises(ValidationError):
+            Maze(
+                width=2,
+                height=1,
+                entry=(0, 0),
+                exit=(2, 0),
+                cells=[connected_row_cells()],
+            )
+
+    def test_rejects_an_out_of_bounds_entry_coordinate(self) -> None:
+        with self.assertRaises(ValidationError):
+            Maze(
+                width=2,
+                height=1,
+                entry=(2, 0),
+                exit=(1, 0),
+                cells=[connected_row_cells()],
+            )
+
+    def test_records_explicit_entry_and_exit_coordinates(self) -> None:
+        left = Cell(x=0, y=0)
+        right = Cell(x=1, y=0)
+        left.walls.remove(Direction.EAST)
+        right.walls.remove(Direction.WEST)
+
+        maze = Maze(
+            width=2,
+            height=1,
+            entry=(0, 0),
+            exit=(1, 0),
+            cells=[[left, right]],
+        )
+
+        self.assertEqual(maze.entry, (0, 0))
+        self.assertEqual(maze.exit, (1, 0))
+
     def test_create_builds_a_rectangular_grid_of_closed_cells(self) -> None:
         maze = Maze.create(width=3, height=2)
 
         self.assertEqual(maze.width, 3)
         self.assertEqual(maze.height, 2)
+        self.assertEqual(maze.entry, (0, 0))
+        self.assertEqual(maze.exit, (2, 1))
         self.assertEqual(maze.cell_at(2, 1).model_dump(), {
             "x": 2,
             "y": 1,
@@ -37,7 +183,13 @@ class MazeTests(unittest.TestCase):
 
     def test_rejects_a_grid_that_does_not_match_its_dimensions(self) -> None:
         with self.assertRaises(ValidationError):
-            Maze(width=2, height=1, cells=[[Cell(x=0, y=0)]])
+            Maze(
+                width=2,
+                height=1,
+                entry=(0, 0),
+                exit=(1, 0),
+                cells=[[Cell(x=0, y=0)]],
+            )
 
     def test_detects_incoherent_shared_walls(self) -> None:
         maze = Maze.create(width=2, height=1)
