@@ -28,7 +28,7 @@ class MazeConfig:
 
 
 class ConfigError(Exception):
-    """Custom exception thrown when configuration parsing or validation fails."""
+    """Custom exception for configuration parsing or validation failures."""
 
     pass
 

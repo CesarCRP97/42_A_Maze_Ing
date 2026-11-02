@@ -13,7 +13,7 @@ Este proyecto propone una estructura modular para crear, configurar y representa
 La idea principal es separar claramente la lógica del laberinto, la configuración del programa y la salida visual o textual para mantener el proyecto escalable y fácil de mantener.
 
 - Generación del laberinto
-- Validación de configuración
+- Validación de configuración con Pydantic
 - Escritura del resultado final
 - Visualización en terminal o gráfica
 - Estructura reutilizable como paquete Python
@@ -42,12 +42,14 @@ a_maze_ing/
 │   ├── ascii_display.py       # Renderizado en terminal ASCII (interactivo)
 │   └── mlx_display.py         # Opcional: renderizado con MiniLibX
 │
-├── config_parser.py           # Validador de ficheros KEY=VALUE
+├── config_parser.py           # Parser KEY=VALUE y validación con Pydantic
 ├── output_writer.py           # Generador del resultado final en formato hexadecimal + coordenadas + ruta
 ├── tests/                     # Tests con pytest
 │                              # No se entregan, pero el Makefile debe pasar linting
 └──
 ```
+
+En la fase inicial se materializan `mazegen/`, los archivos de la raíz y las pruebas del modelo de dominio. `visualizer/` permanece como una extensión prevista, pero no se crea todavía.
 
 ## Módulos principales
 
@@ -101,8 +103,8 @@ El módulo `config_parser.py` procesa y valida el archivo de configuración en f
 
 ### Arquitectura y Funcionamiento
 
-1. **Inmutabilidad de Datos (`MazeConfig`)**:
-   Se utiliza un objeto inmutable mediante `@dataclass(frozen=True)` que almacena la configuración validada. Esto previene modificaciones accidentales de los parámetros durante el ciclo de vida del programa.
+1. **Modelo de Datos e Inmutabilidad (`MazeConfig`)**:
+   Se utiliza un modelo de Pydantic (`BaseModel`) configurado con `ConfigDict(frozen=True)` que almacena la configuración validada. Pydantic es una dependencia de ejecución declarada en `pyproject.toml` (`pydantic>=2,<3`) y previene modificaciones accidentales de los parámetros durante el ciclo de vida del programa.
 
 2. **Control de Errores Exhaustivo (`ConfigError`)**:
    Cualquier anomalía (archivos inexistentes, errores de sintaxis, coordenadas inválidas o tipos incompatibles) se captura y relanza bajo la excepción personalizada `ConfigError`. Esto evita fallos inesperados y asegura mensajes claros por consola.
