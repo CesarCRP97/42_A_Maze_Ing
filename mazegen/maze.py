@@ -45,6 +45,7 @@ class Cell(BaseModel):
     x: int = Field(ge=0)
     y: int = Field(ge=0)
     walls: set[Direction] = Field(default_factory=lambda: set(Direction))
+    blocked: bool = False
 
     @property
     def wall_mask(self) -> int:
@@ -93,6 +94,13 @@ class Maze(BaseModel):
                         "Cell coordinates must match their grid position."
                     )
 
+        entry_cell = self.cell_at(self.entry)
+        exit_cell = self.cell_at(self.exit)
+        if entry_cell.blocked or exit_cell.blocked:
+            raise ValueError("Entry and exit coordinates must be walkable.")
+
+        if not self._has_closed_blocked_cells():
+            raise ValueError("Blocked cells must keep all four walls closed.")
         if not self._has_closed_external_borders():
             raise ValueError("External maze borders must remain closed.")
         if not self._has_symmetric_shared_walls():
@@ -118,6 +126,14 @@ class Maze(BaseModel):
                             return False
         return True
 
+    def _has_closed_blocked_cells(self) -> bool:
+        """Return whether every blocked cell has all four walls closed."""
+        for row in self.cells:
+            for cell in row:
+                if cell.blocked and cell.walls != set(Direction):
+                    return False
+        return True
+
     def _has_symmetric_shared_walls(self) -> bool:
         """Return whether internal walls agree from both adjacent cells."""
         for y, row in enumerate(self.cells):
@@ -125,7 +141,7 @@ class Maze(BaseModel):
                 for direction in Direction:
                     neighbor = self.neighbor_coordinates(x, y, direction)
                     if neighbor is not None:
-                        neighbor_cell = self.cell_at(*neighbor)
+                        neighbor_cell = self.cell_at(neighbor)
                         if cell.has_wall(direction) != neighbor_cell.has_wall(
                             direction.opposite
                         ):
@@ -133,19 +149,24 @@ class Maze(BaseModel):
         return True
 
     def _has_full_connectivity(self) -> bool:
-        """Return whether all cells can be reached through open passages."""
+        """Return whether every walkable cell can be reached by passages."""
         reachable = {self.entry}
         pending = deque([self.entry])
         while pending:
             x, y = pending.popleft()
-            cell = self.cell_at(x, y)
+            cell = self.cell_at((x, y))
             for direction in Direction:
                 neighbor = self.neighbor_coordinates(x, y, direction)
-                if neighbor is not None and not cell.has_wall(direction):
-                    if neighbor not in reachable:
-                        reachable.add(neighbor)
-                        pending.append(neighbor)
-        return len(reachable) == self.width * self.height
+                if neighbor is None or cell.has_wall(direction):
+                    continue
+                neighbor_cell = self.cell_at(neighbor)
+                if not neighbor_cell.blocked and neighbor not in reachable:
+                    reachable.add(neighbor)
+                    pending.append(neighbor)
+        walkable_cells = sum(
+            not cell.blocked for row in self.cells for cell in row
+        )
+        return len(reachable) == walkable_cells
 
     @classmethod
     def create(cls, width: int, height: int) -> "Maze":
@@ -161,8 +182,44 @@ class Maze(BaseModel):
             ],
         )
 
-    def cell_at(self, x: int, y: int) -> Cell:
-        """Return the cell stored at ``(x, y)``."""
+    @classmethod
+    def create_open(cls, width: int, height: int) -> "Maze":
+        """Create a maze with open internal passages and closed borders."""
+        if width < 2 or height < 2:
+            raise ValueError(
+                "Open mazes require at least two rows and columns."
+            )
+        return cls.model_construct(
+            width=width,
+            height=height,
+            entry=(0, 0),
+            exit=(width - 1, height - 1),
+            cells=[
+                [
+                    Cell(
+                        x=x,
+                        y=y,
+                        walls={
+                            direction
+                            for direction in Direction
+                            if not all(
+                                0 <= coordinate < size
+                                for coordinate, size in (
+                                    (x + direction.delta[0], width),
+                                    (y + direction.delta[1], height),
+                                )
+                            )
+                        },
+                    )
+                    for x in range(width)
+                ]
+                for y in range(height)
+            ],
+        )
+
+    def cell_at(self, coordinate: Coordinate) -> Cell:
+        """Return the cell stored at ``coordinate``."""
+        x, y = coordinate
         if not (0 <= x < self.width and 0 <= y < self.height):
             raise IndexError(f"Cell ({x}, {y}) is outside the maze bounds.")
         return self.cells[y][x]
@@ -174,7 +231,7 @@ class Maze(BaseModel):
         direction: Direction,
     ) -> Coordinate | None:
         """Return adjacent coordinates, or ``None`` at an external border."""
-        self.cell_at(x, y)
+        self.cell_at((x, y))
         delta_x, delta_y = direction.delta
         neighbor_x, neighbor_y = x + delta_x, y + delta_y
         if 0 <= neighbor_x < self.width and 0 <= neighbor_y < self.height:
@@ -187,8 +244,40 @@ class Maze(BaseModel):
         if neighbor is None:
             raise ValueError("An external maze border cannot be opened.")
 
-        self.cell_at(x, y).walls.discard(direction)
-        self.cell_at(*neighbor).walls.discard(direction.opposite)
+        cell = self.cell_at((x, y))
+        neighbor_cell = self.cell_at(neighbor)
+        if cell.blocked or neighbor_cell.blocked:
+            raise ValueError("Blocked cells cannot have open passages.")
+        cell.walls.discard(direction)
+        neighbor_cell.walls.discard(direction.opposite)
+
+    def block_cell(self, x: int, y: int) -> None:
+        """Make one cell unreachable while preserving wall symmetry."""
+        if (x, y) == self.entry or (x, y) == self.exit:
+            raise ValueError("Entry and exit cells cannot be blocked.")
+        cell = self.cell_at((x, y))
+        previous_blocked = cell.blocked
+        previous_walls = set(cell.walls)
+        neighboring_walls: dict[Coordinate, set[Direction]] = {}
+        for direction in Direction:
+            neighbor = self.neighbor_coordinates(x, y, direction)
+            if neighbor is not None:
+                neighboring_walls[neighbor] = set(self.cell_at(neighbor).walls)
+
+        cell.blocked = True
+        cell.walls.update(Direction)
+        for direction in Direction:
+            neighbor = self.neighbor_coordinates(x, y, direction)
+            if neighbor is not None:
+                self.cell_at(neighbor).walls.add(direction.opposite)
+        if self._has_full_connectivity():
+            return
+
+        cell.blocked = previous_blocked
+        cell.walls = previous_walls
+        for neighbor, walls in neighboring_walls.items():
+            self.cell_at(neighbor).walls = walls
+        raise ValueError("Blocking this cell disconnects walkable cells.")
 
     def has_coherent_walls(self) -> bool:
         """Check shared-wall symmetry and closed external borders."""
