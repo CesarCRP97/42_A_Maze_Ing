@@ -14,14 +14,24 @@ class Pattern42:
         "..#.###",
     )
 
-    @classmethod
-    def apply(cls, maze: Maze) -> None:
+    @staticmethod
+    def apply(maze: Maze) -> None:
         """Block every marked cell of the centered 42 mask."""
-        if maze.width < 8 or maze.height < 7:
+        if maze.width < 9 or maze.height < 7:
             return
-        origin_x = (maze.width - len(cls.MASK[0])) // 2
-        origin_y = (maze.height - len(cls.MASK)) // 2
-        for pattern_y, row in enumerate(cls.MASK):
-            for pattern_x, marker in enumerate(row):
-                if marker == "#":
-                    maze.block_cell(origin_x + pattern_x, origin_y + pattern_y)
+        origin_x = (maze.width - len(Pattern42.MASK[0])) // 2
+        origin_y = (maze.height - len(Pattern42.MASK)) // 2
+        blocked_coordinates = [
+            (origin_x + pattern_x, origin_y + pattern_y)
+            for pattern_y, row in enumerate(Pattern42.MASK)
+            for pattern_x, marker in enumerate(row)
+            if marker == "#"
+        ]
+        entry_overlaps = maze.entry in blocked_coordinates
+        exit_overlaps = maze.exit in blocked_coordinates
+        if entry_overlaps or exit_overlaps:
+            raise ValueError(
+                "Entry and exit coordinates cannot overlap Pattern42."
+            )
+        for block_x, block_y in blocked_coordinates:
+            maze.block_cell(block_x, block_y)

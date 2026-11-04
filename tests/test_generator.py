@@ -59,6 +59,28 @@ class MazeGeneratorTests(unittest.TestCase):
             maze.width * maze.height - 1,
         )
 
+    def test_generates_a_perfect_maze_around_pattern42(self) -> None:
+        maze = MazeGenerator(seed=42).generate_perfect(9, 7, (0, 0), (8, 6))
+        walkable_cells = sum(
+            not cell.blocked for row in maze.cells for cell in row
+        )
+        open_passages = count_open_internal_passages(maze)
+
+        self.assertEqual(
+            sum(cell.blocked for row in maze.cells for cell in row),
+            20,
+        )
+        self.assertEqual(open_passages, walkable_cells - 1)
+
+    def test_rejects_an_endpoint_overlapping_pattern42(self) -> None:
+        generator = MazeGenerator()
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "Entry and exit coordinates cannot overlap Pattern42.",
+        ):
+            generator.generate_perfect(9, 7, (1, 1), (8, 6))
+
     def test_same_seed_produces_the_same_wall_layout(self) -> None:
         first = MazeGenerator(seed=42).generate_perfect(4, 3, (0, 0), (3, 2))
         second = MazeGenerator(seed=42).generate_perfect(4, 3, (0, 0), (3, 2))

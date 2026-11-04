@@ -5,6 +5,7 @@ from random import Random
 from pydantic import BaseModel, ConfigDict
 
 from mazegen.maze import Direction, Maze
+from mazegen.pattern42 import Pattern42
 from mazegen.types import Coordinate
 
 
@@ -101,7 +102,15 @@ class MazeGenerator(BaseModel):
         """Generate a connected acyclic maze for the given endpoints."""
         self._validate_request(width, height, entry, exit)
         random_source = Random(self.seed)
-        maze = self._new_open_maze(width, height)
+        open_maze = self._new_open_maze(width, height)
+        maze = Maze(
+            width=width,
+            height=height,
+            entry=entry,
+            exit=exit,
+            cells=open_maze.cells,
+        )
+        Pattern42.apply(maze)
         self._close_perfect_maze(maze, random_source)
         return Maze(
             width=width,
