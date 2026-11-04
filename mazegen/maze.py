@@ -251,6 +251,17 @@ class Maze(BaseModel):
         cell.walls.discard(direction)
         neighbor_cell.walls.discard(direction.opposite)
 
+    def close_passage(self, x: int, y: int, direction: Direction) -> None:
+        """Close the shared wall between a cell and its neighbor."""
+        neighbor = self.neighbor_coordinates(x, y, direction)
+        if neighbor is None:
+            raise ValueError("An external maze border cannot be closed.")
+
+        cell = self.cell_at((x, y))
+        neighbor_cell = self.cell_at(neighbor)
+        cell.walls.add(direction)
+        neighbor_cell.walls.add(direction.opposite)
+
     def block_cell(self, x: int, y: int) -> None:
         """Make one cell unreachable while preserving wall symmetry."""
         if (x, y) == self.entry or (x, y) == self.exit:

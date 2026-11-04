@@ -317,6 +317,15 @@ class MazeTests(unittest.TestCase):
         self.assertFalse(maze.cell_at((0, 0)).has_wall(Direction.EAST))
         self.assertFalse(maze.cell_at((1, 0)).has_wall(Direction.WEST))
 
+    def test_close_passage_adds_the_two_facing_walls(self) -> None:
+        maze = Maze.create_open(width=2, height=2)
+
+        maze.close_passage(0, 0, Direction.EAST)
+
+        self.assertTrue(maze.cell_at((0, 0)).has_wall(Direction.EAST))
+        self.assertTrue(maze.cell_at((1, 0)).has_wall(Direction.WEST))
+        self.assertTrue(maze.has_coherent_walls())
+
     def test_rejects_a_grid_that_does_not_match_its_dimensions(self) -> None:
         with self.assertRaises(ValidationError):
             Maze(

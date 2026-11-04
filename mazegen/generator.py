@@ -16,13 +16,6 @@ class MazeGenerator(BaseModel):
     seed: int | None = None
 
     @staticmethod
-    def _shuffled_directions(random_source: Random) -> list[Direction]:
-        """Return cardinal directions in a random order."""
-        directions = list(Direction)
-        random_source.shuffle(directions)
-        return directions
-
-    @staticmethod
     def _validate_request(
         width: int,
         height: int,
@@ -30,8 +23,8 @@ class MazeGenerator(BaseModel):
         exit: Coordinate,
     ) -> None:
         """Validate dimensions and endpoint coordinates for generation."""
-        if width <= 0 or height <= 0:
-            raise ValueError("Maze dimensions must be positive.")
+        if width < 2 or height < 2:
+            raise ValueError("Maze dimensions must be at least 2 by 2.")
         if entry == exit:
             raise ValueError("Entry and exit coordinates must be distinct.")
 
@@ -43,52 +36,60 @@ class MazeGenerator(BaseModel):
                 )
 
     @staticmethod
-    def _new_closed_maze(width: int, height: int) -> Maze:
-        """Create the closed maze grid that generation will carve."""
-        return Maze.create(width, height)
+    def _new_open_maze(width: int, height: int) -> Maze:
+        """Create the open maze grid that generation will close."""
+        return Maze.create_open(width, height)
 
-    def _unvisited_neighbors(
+    def _close_perfect_maze(
         self,
         maze: Maze,
-        coordinate: Coordinate,
-        visited: set[Coordinate],
-        random_source: Random,
-    ) -> list[tuple[Direction, Coordinate]]:
-        """Return unvisited adjacent cells in a random direction order."""
-        x, y = coordinate
-        neighbors: list[tuple[Direction, Coordinate]] = []
-        for direction in self._shuffled_directions(random_source):
-            neighbor = maze.neighbor_coordinates(x, y, direction)
-            if neighbor is not None and neighbor not in visited:
-                neighbors.append((direction, neighbor))
-        return neighbors
-
-    def _carve_perfect_maze(
-        self,
-        maze: Maze,
-        entry: Coordinate,
         random_source: Random,
     ) -> None:
-        """Carve a spanning tree through the closed maze using DFS."""
-        visited = {entry}
-        pending = [entry]
+        """Close cycles while preserving one path between walkable cells."""
+        parent = {
+            (cell.x, cell.y): (cell.x, cell.y)
+            for row in maze.cells
+            for cell in row
+            if not cell.blocked
+        }
+        passages: list[tuple[Coordinate, Direction]] = []
 
-        while pending:
-            coordinate = pending[-1]
-            neighbors = self._unvisited_neighbors(
-                maze,
-                coordinate,
-                visited,
-                random_source,
-            )
-            if not neighbors:
-                pending.pop()
+        for row in maze.cells:
+            for cell in row:
+                coordinate = (cell.x, cell.y)
+                if cell.blocked:
+                    continue
+                for direction in (Direction.EAST, Direction.SOUTH):
+                    neighbor = maze.neighbor_coordinates(
+                        *coordinate,
+                        direction,
+                    )
+                    if neighbor is None or cell.has_wall(direction):
+                        continue
+                    if not maze.cell_at(neighbor).blocked:
+                        passages.append((coordinate, direction))
+
+        random_source.shuffle(passages)
+        for coordinate, direction in passages:
+            neighbor = maze.neighbor_coordinates(*coordinate, direction)
+            if neighbor is None:
                 continue
+            source_root = self._root(parent, coordinate)
+            neighbor_root = self._root(parent, neighbor)
+            if source_root == neighbor_root:
+                maze.close_passage(*coordinate, direction)
+                continue
+            parent[source_root] = neighbor_root
 
-            direction, neighbor = neighbors[0]
-            maze.open_passage(*coordinate, direction)
-            visited.add(neighbor)
-            pending.append(neighbor)
+    @staticmethod
+    def _root(
+        parent: dict[Coordinate, Coordinate],
+        coordinate: Coordinate,
+    ) -> Coordinate:
+        """Return the root of a Union-Find component."""
+        while parent[coordinate] != coordinate:
+            coordinate = parent[coordinate]
+        return coordinate
 
     def generate_perfect(
         self,
@@ -100,8 +101,8 @@ class MazeGenerator(BaseModel):
         """Generate a connected acyclic maze for the given endpoints."""
         self._validate_request(width, height, entry, exit)
         random_source = Random(self.seed)
-        maze = self._new_closed_maze(width, height)
-        self._carve_perfect_maze(maze, entry, random_source)
+        maze = self._new_open_maze(width, height)
+        self._close_perfect_maze(maze, random_source)
         return Maze(
             width=width,
             height=height,

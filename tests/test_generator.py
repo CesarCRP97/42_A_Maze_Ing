@@ -1,5 +1,6 @@
 """Tests for perfect maze generation."""
 
+from random import Random
 import unittest
 
 from pydantic import ValidationError
@@ -30,6 +31,23 @@ class MazeGeneratorTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             generator.seed = 7
 
+    def test_initializes_an_open_maze(self) -> None:
+        maze = MazeGenerator._new_open_maze(2, 2)
+
+        self.assertFalse(maze.cell_at((0, 0)).has_wall(Direction.EAST))
+        self.assertFalse(maze.cell_at((0, 0)).has_wall(Direction.SOUTH))
+        self.assertTrue(maze.cell_at((0, 0)).has_wall(Direction.NORTH))
+        self.assertTrue(maze.cell_at((0, 0)).has_wall(Direction.WEST))
+
+    def test_closes_an_open_maze_to_a_perfect_maze(self) -> None:
+        generator = MazeGenerator(seed=42)
+        maze = generator._new_open_maze(3, 2)
+
+        generator._close_perfect_maze(maze, Random(generator.seed))
+
+        self.assertTrue(maze.has_coherent_walls())
+        self.assertEqual(count_open_internal_passages(maze), 5)
+
     def test_generates_a_connected_acyclic_maze(self) -> None:
         maze = MazeGenerator(seed=42).generate_perfect(3, 2, (0, 0), (2, 1))
 
@@ -47,11 +65,16 @@ class MazeGeneratorTests(unittest.TestCase):
 
         self.assertEqual(wall_masks(first), wall_masks(second))
 
-    def test_generates_a_single_column_maze(self) -> None:
-        maze = MazeGenerator(seed=7).generate_perfect(1, 3, (0, 0), (0, 2))
+    def test_rejects_single_row_or_column_mazes(self) -> None:
+        generator = MazeGenerator()
 
-        self.assertTrue(maze.has_coherent_walls())
-        self.assertEqual(count_open_internal_passages(maze), 2)
+        for request in ((1, 3, (0, 0), (0, 2)), (3, 1, (0, 0), (2, 0))):
+            with self.subTest(request=request):
+                with self.assertRaisesRegex(
+                    ValueError,
+                    "Maze dimensions must be at least 2 by 2.",
+                ):
+                    generator.generate_perfect(*request)
 
     def test_rejects_invalid_generation_requests(self) -> None:
         generator = MazeGenerator()
