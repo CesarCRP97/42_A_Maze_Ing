@@ -19,11 +19,21 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        parse_config(args.config)
+        config = parse_config(args.config)
     except ConfigError as error:
         parser.error(str(error))
 
-    print("Configuración válida.")
+    lines = [
+        "Configuración cargada:",
+        f"Tamaño: {config.width}x{config.height}",
+        f"Entrada: {config.entry[0]},{config.entry[1]}",
+        f"Salida: {config.exit[0]},{config.exit[1]}",
+        f"Perfecto: {'sí' if config.perfect else 'no'}",
+        f"Archivo de salida: {config.output_file}",
+    ]
+    if config.seed is not None:
+        lines.append(f"Semilla: {config.seed}")
+    print("\n".join(lines))
     return 0
 
 
