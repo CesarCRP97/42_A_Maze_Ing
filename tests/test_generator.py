@@ -72,6 +72,74 @@ class MazeGeneratorTests(unittest.TestCase):
         )
         self.assertEqual(open_passages, walkable_cells - 1)
 
+    def test_preserves_explicit_open_and_closed_passages(self) -> None:
+        maze = MazeGenerator(seed=42).generate_perfect(
+            3,
+            2,
+            (0, 0),
+            (2, 1),
+            required_open_passages=[((0, 0), Direction.EAST)],
+            protected_closed_passages=[((0, 0), Direction.SOUTH)],
+        )
+
+        self.assertFalse(maze.cell_at((0, 0)).has_wall(Direction.EAST))
+        self.assertTrue(maze.cell_at((0, 0)).has_wall(Direction.SOUTH))
+        self.assertEqual(count_open_internal_passages(maze), 5)
+
+    def test_rejects_a_cycle_in_required_open_passages(self) -> None:
+        generator = MazeGenerator()
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "Required open passages form a cycle.",
+        ):
+            generator.generate_perfect(
+                2,
+                2,
+                (0, 0),
+                (1, 1),
+                required_open_passages=[
+                    ((0, 0), Direction.EAST),
+                    ((1, 0), Direction.SOUTH),
+                    ((0, 1), Direction.EAST),
+                    ((0, 0), Direction.SOUTH),
+                ],
+            )
+
+    def test_rejects_one_passage_with_conflicting_constraints(self) -> None:
+        generator = MazeGenerator()
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "A passage cannot be both required open and closed.",
+        ):
+            generator.generate_perfect(
+                2,
+                2,
+                (0, 0),
+                (1, 1),
+                required_open_passages=[((1, 0), Direction.WEST)],
+                protected_closed_passages=[((0, 0), Direction.EAST)],
+            )
+
+    def test_rejects_protected_passages_that_disconnect_the_maze(self) -> None:
+        generator = MazeGenerator()
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "Protected closed passages disconnect the maze.",
+        ):
+            generator.generate_perfect(
+                2,
+                2,
+                (0, 0),
+                (1, 1),
+                protected_closed_passages=[
+                    ((0, 0), Direction.EAST),
+                    ((0, 0), Direction.SOUTH),
+                ],
+            )
+
     def test_rejects_an_endpoint_overlapping_pattern42(self) -> None:
         generator = MazeGenerator()
 
