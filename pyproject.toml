@@ -12,5 +12,16 @@ dependencies = [
     "pydantic>=2,<3",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "flake8",
+    "mypy",
+    "pytest",
+    "build",
+    "setuptools",
+    "wheel",
+]
+
 [tool.setuptools.packages.find]
-exclude = ["*"]
+where = ["."]
+include = ["mazegen*"]
