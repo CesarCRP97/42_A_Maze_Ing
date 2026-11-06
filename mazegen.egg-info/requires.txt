@@ -1,0 +1,9 @@
+pydantic<3,>=2
+
+[dev]
+flake8
+mypy
+pytest
+build
+setuptools
+wheel
