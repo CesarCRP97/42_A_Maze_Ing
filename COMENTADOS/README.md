@@ -8,7 +8,9 @@ Generador y visualizador de laberintos en Python.
 
 Este proyecto propone una estructura modular para crear, configurar y representar laberintos de forma reutilizable, con un ejecutable principal, un módulo de generación y una capa de visualización.
 
-> Para preparar la exposición, consulta [guion.md](guion.md) y la explicación archivo por archivo en [GUIA_ARCHIVOS.md](GUIA_ARCHIVOS.md).
+> Para preparar la exposición, consulta [guion.md](guion.md), el manual
+> tecnico [DOCUMENTACION_COMPLETA.md](DOCUMENTACION_COMPLETA.md) y la
+> [guia de archivos](GUIA_ARCHIVOS.md).
 
 ## Description
 
@@ -52,8 +54,9 @@ a_maze_ing/
 └──
 ```
 
-La distribución instalable `mazegen-*.whl` se entrega en la raíz. Incluye
-la biblioteca y esta documentación, no la CLI ni el visualizador.
+La distribución instalable `mazegen-*.whl` se entrega en la raíz. Contiene
+la biblioteca `mazegen`; no instala la CLI ni el visualizador. El README se
+incluye como metadato descriptivo del paquete.
 
 ## Módulos principales
 

@@ -1,5 +1,8 @@
 # Guion de defensa de A-Maze-ing
 
+Para el detalle de cada clase, funcion, prueba y requisito del subject,
+consulta [DOCUMENTACION_COMPLETA.md](DOCUMENTACION_COMPLETA.md).
+
 ## Presentación
 
 Buenos días. Voy a presentar **A-Maze-ing**, un proyecto en Python que genera

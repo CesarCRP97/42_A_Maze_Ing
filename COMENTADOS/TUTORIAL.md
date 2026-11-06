@@ -2,7 +2,9 @@
 
 El programa genera laberintos, calcula la ruta más corta y permite guardar el resultado o visualizarlo en una terminal interactiva.
 
-Para defender el diseño y repasar qué explicar en cada fichero, consulta [guion.md](guion.md) y [GUIA_ARCHIVOS.md](GUIA_ARCHIVOS.md).
+Para defender el diseño y repasar cada archivo, consulta [guion.md](guion.md),
+[DOCUMENTACION_COMPLETA.md](DOCUMENTACION_COMPLETA.md) y
+[GUIA_ARCHIVOS.md](GUIA_ARCHIVOS.md).
 
 ## 1. Instalar y arrancar
 
@@ -160,8 +162,8 @@ Las pruebas automatizadas reducen el riesgo de regresiones, pero no garantizan a
 
 ## 8. Paquete reutilizable
 
-El código de `mazegen` se entrega como wheel y archivo fuente en la raíz.
-Desde el repositorio instalado, puedes reconstruir ambos con:
+El wheel de `mazegen` se conserva en la raíz. Desde el repositorio puedes
+reconstruir el wheel y el archivo fuente con:
 
 ```bash
 make package
