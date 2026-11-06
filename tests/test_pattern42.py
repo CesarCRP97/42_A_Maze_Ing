@@ -1,5 +1,7 @@
 """Tests for the structural 42 pattern."""
 
+from contextlib import redirect_stderr
+from io import StringIO
 import unittest
 
 from mazegen.maze import Maze
@@ -48,9 +50,17 @@ class Pattern42Tests(unittest.TestCase):
         for width, height in ((7, 7), (8, 7), (8, 6)):
             with self.subTest(width=width, height=height):
                 maze = Maze.create_open(width=width, height=height)
+                stderr = StringIO()
 
-                Pattern42.apply(maze)
+                with redirect_stderr(stderr):
+                    applied = Pattern42.apply(maze)
 
+                self.assertFalse(applied)
+                self.assertEqual(
+                    stderr.getvalue(),
+                    "Warning: Maze too small for the 42 pattern "
+                    f"({width}x{height} < 9x7). Pattern omitted.\n",
+                )
                 self.assertFalse(
                     any(cell.blocked for row in maze.cells for cell in row)
                 )

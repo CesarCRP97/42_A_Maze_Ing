@@ -196,27 +196,27 @@ def _regenerate_maze(state: VisualizerState) -> VisualizerState:
         maze=maze,
         solution=solution,
         generator=new_generator,
-        last_action="Nuevo laberinto generado",
+        last_action="New maze generated",
     )
 
 
 def _toggle_solution(state: VisualizerState) -> VisualizerState:
     """Toggle solution visibility."""
-    action = "mostrada" if not state.show_solution else "ocultada"
+    action = "shown" if not state.show_solution else "hidden"
     return replace(
         state,
         show_solution=not state.show_solution,
-        last_action=f"Solución {action}",
+        last_action=f"Solution {action}",
     )
 
 
 def _toggle_color_mode(state: VisualizerState) -> VisualizerState:
     """Toggle color mode on/off."""
-    action = "activados" if not state.use_color else "desactivados"
+    action = "enabled" if not state.use_color else "disabled"
     return replace(
         state,
         use_color=not state.use_color,
-        last_action=f"Colores {action}",
+        last_action=f"Colors {action}",
     )
 
 
@@ -234,20 +234,20 @@ def _render_state(state: VisualizerState) -> str:
         use_color=state.use_color,
     )
 
-    mode_str = "Perfecto" if state.config_perfect else "Imperfecto"
+    mode_str = "Perfect" if state.config_perfect else "Imperfect"
     gen_seed = state.generator.seed
-    seed_str = str(gen_seed) if gen_seed else "aleatoria"
+    seed_str = str(gen_seed) if gen_seed else "random"
 
     help_lines = [
         "",
-        f"Modo: {mode_str} | Tamaño: "
-        f"{state.config_width}x{state.config_height} | Semilla: {seed_str}",
+        f"Mode: {mode_str} | Size: "
+        f"{state.config_width}x{state.config_height} | Seed: {seed_str}",
         "",
-        "Controles:",
-        "  R - Regenerar laberinto (nueva semilla)",
-        "  S - Mostrar/Ocultar solución",
-        "  C - Toggle colores ON/OFF",
-        "  Q - Salir",
+        "Controls:",
+        "  R - Regenerate maze (new seed)",
+        "  S - Show/Hide solution",
+        "  C - Toggle colors ON/OFF",
+        "  Q - Quit",
         "",
     ]
 
@@ -313,7 +313,7 @@ def run_interactive(
         pass
     finally:
         _clear_screen()
-        print("¡Hasta luego!")
+        print("Goodbye!")
 
 
 if __name__ == "__main__":

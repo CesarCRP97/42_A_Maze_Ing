@@ -30,8 +30,8 @@ class Pattern42:
         if maze.width < 9 or maze.height < 7:
             if not quiet:
                 print(
-                    "Aviso: Laberinto demasiado pequeño para el patrón 42 "
-                    f"({maze.width}x{maze.height} < 9x7). Patrón omitido.",
+                    "Warning: Maze too small for the 42 pattern "
+                    f"({maze.width}x{maze.height} < 9x7). Pattern omitted.",
                     file=sys.stderr,
                 )
             return False

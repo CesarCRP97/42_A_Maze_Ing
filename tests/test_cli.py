@@ -11,6 +11,24 @@ from a_maze_ing import main
 
 
 class CommandLineTests(unittest.TestCase):
+    def test_help_describes_both_modes_in_english(self) -> None:
+        stdout = StringIO()
+        with (
+            patch("sys.argv", ["a_maze_ing.py", "--help"]),
+            redirect_stdout(stdout),
+            self.assertRaises(SystemExit) as raised,
+        ):
+            main()
+
+        self.assertEqual(raised.exception.code, 0)
+        self.assertIn("A-Maze-ing maze generator", stdout.getvalue())
+        self.assertIn(
+            "Path to the KEY=VALUE configuration file", stdout.getvalue()
+        )
+        self.assertIn(
+            "Run the interactive terminal visualizer", stdout.getvalue()
+        )
+
     def test_rejects_single_row_or_column_without_a_traceback(self) -> None:
         for width, height in ((1, 2), (2, 1)):
             for perfect in ("true", "false"):
@@ -84,14 +102,14 @@ class CommandLineTests(unittest.TestCase):
             stdout.getvalue(),
             "\n".join(
                 (
-                    "Configuración cargada:",
-                    "Tamaño: 3x2",
-                    "Entrada: 0,0",
-                    "Salida: 2,1",
-                    "Perfecto: sí",
-                    f"Archivo de salida: {output_file}",
-                    "Semilla: 42",
-                    f"Laberinto generado y escrito en: {output_file}",
+                    "Configuration loaded:",
+                    "Size: 3x2",
+                    "Entry: 0,0",
+                    "Exit: 2,1",
+                    "Perfect: yes",
+                    f"Output file: {output_file}",
+                    "Seed: 42",
+                    f"Maze generated and written to: {output_file}",
                     "",
                 )
             ),
@@ -128,7 +146,7 @@ class CommandLineTests(unittest.TestCase):
             self.assertTrue(output_file.is_file())
             serialized_maze = output_file.read_text(encoding="utf-8")
             self.assertIn(
-                f"Laberinto generado y escrito en: {output_file}",
+                f"Maze generated and written to: {output_file}",
                 stdout.getvalue(),
             )
             self.assertIn("0,0\n2,2\n", serialized_maze)
@@ -164,7 +182,7 @@ class CommandLineTests(unittest.TestCase):
             self.assertTrue(output_file.is_file())
             serialized_maze = output_file.read_text(encoding="utf-8")
             self.assertIn(
-                f"Laberinto generado y escrito en: {output_file}",
+                f"Maze generated and written to: {output_file}",
                 stdout.getvalue(),
             )
             self.assertIn("0,0\n2,2\n", serialized_maze)
@@ -201,7 +219,7 @@ class CommandLineTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 2)
         self.assertIn(
-            "No se pudo escribir el archivo de salida",
+            "Could not write the output file",
             stderr.getvalue(),
         )
 

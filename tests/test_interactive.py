@@ -90,7 +90,7 @@ class InteractiveControlTests(unittest.TestCase):
         hidden = interactive._handle_key(original, b"s")
         assert hidden is not None
         self.assertFalse(hidden.show_solution)
-        self.assertEqual(hidden.last_action, "Solución ocultada")
+        self.assertEqual(hidden.last_action, "Solution hidden")
         self.assertNotIn(" * ", interactive._render_state(hidden))
         self.assertIs(hidden.maze, original.maze)
         self.assertIs(hidden.solution, original.solution)
@@ -100,7 +100,7 @@ class InteractiveControlTests(unittest.TestCase):
         shown = interactive._handle_key(hidden, b"S")
         assert shown is not None
         self.assertTrue(shown.show_solution)
-        self.assertEqual(shown.last_action, "Solución mostrada")
+        self.assertEqual(shown.last_action, "Solution shown")
         self.assertIn(" * ", interactive._render_state(shown))
         self.assertEqual(replace(shown, last_action=""), original)
 
@@ -113,7 +113,7 @@ class InteractiveControlTests(unittest.TestCase):
         assert colored is not None
         rendered = interactive._render_state(colored)
         self.assertTrue(colored.use_color)
-        self.assertEqual(colored.last_action, "Colores activados")
+        self.assertEqual(colored.last_action, "Colors enabled")
         for color in (51, 198, 226, 201):
             self.assertIn(f"\033[38;5;{color}m", rendered)
         self.assertIn(" * ", rendered)
@@ -123,7 +123,7 @@ class InteractiveControlTests(unittest.TestCase):
         uncolored = interactive._handle_key(colored, b"C")
         assert uncolored is not None
         self.assertFalse(uncolored.use_color)
-        self.assertEqual(uncolored.last_action, "Colores desactivados")
+        self.assertEqual(uncolored.last_action, "Colors disabled")
         self.assertNotIn("\033[", interactive._render_state(uncolored))
         self.assertEqual(replace(uncolored, last_action=""), original)
 
@@ -178,7 +178,7 @@ class InteractiveControlTests(unittest.TestCase):
                         original,
                     )
                     self.assertEqual(
-                        updated.last_action, "Nuevo laberinto generado"
+                        updated.last_action, "New maze generated"
                     )
                     self.assertEqual(original.solution, [])
                     self.assertEqual(original.last_action, "")
@@ -196,14 +196,25 @@ class InteractiveControlTests(unittest.TestCase):
                 self.assertIs(interactive._handle_key(state, key), state)
 
     def test_render_includes_configuration_help_and_last_action(self) -> None:
-        state = replace(make_state(), last_action="Acción de prueba")
+        state = replace(make_state(), last_action="Test action")
         rendered = interactive._render_state(state)
-        self.assertIn("Modo: Imperfecto | Tamaño: 2x2 | Semilla: 42", rendered)
-        self.assertIn("→ Acción de prueba", rendered)
-        for label in ("R -", "S -", "C -", "Q -"):
+        self.assertIn("Mode: Imperfect | Size: 2x2 | Seed: 42", rendered)
+        self.assertIn("→ Test action", rendered)
+        self.assertIn("Controls:", rendered)
+        for label in (
+            "R - Regenerate maze (new seed)",
+            "S - Show/Hide solution",
+            "C - Toggle colors ON/OFF",
+            "Q - Quit",
+        ):
             self.assertIn(label, rendered)
         perfect = replace(state, config_perfect=True)
-        self.assertIn("Modo: Perfecto", interactive._render_state(perfect))
+        self.assertIn("Mode: Perfect", interactive._render_state(perfect))
+
+    def test_render_labels_random_seed_in_english(self) -> None:
+        state = replace(make_state(), generator=MazeGenerator(seed=None))
+
+        self.assertIn("Seed: random", interactive._render_state(state))
 
 
 class InteractiveLoopTests(unittest.TestCase):
@@ -226,14 +237,14 @@ class InteractiveLoopTests(unittest.TestCase):
         self.assertIn(" * ", frames[0])
         self.assertIn("\033[38;5;", frames[0])
         self.assertNotIn(" * ", frames[1])
-        self.assertIn("Solución ocultada", frames[1])
+        self.assertIn("Solution hidden", frames[1])
         self.assertNotIn("\033[", frames[2])
         self.assertEqual(frames[2], frames[3])
         self.assertIn(" * ", frames[4])
-        self.assertIn("Solución mostrada", frames[4])
+        self.assertIn("Solution shown", frames[4])
         self.assertIn("\033[38;5;", frames[5])
-        self.assertIn("Colores activados", frames[5])
-        self.assertEqual(frames[-1], "¡Hasta luego!\n")
+        self.assertIn("Colors enabled", frames[5])
+        self.assertEqual(frames[-1], "Goodbye!\n")
 
     def test_loop_exits_on_q_or_escape_after_one_read(self) -> None:
         for key in (b"q", b"Q", b"\x1b"):
@@ -250,7 +261,7 @@ class InteractiveLoopTests(unittest.TestCase):
                     )
                 self.assertEqual(getch.return_value.call_count, 1)
                 self.assertEqual(stdout.getvalue().count(_CLEAR), 2)
-                self.assertTrue(stdout.getvalue().endswith("¡Hasta luego!\n"))
+                self.assertTrue(stdout.getvalue().endswith("Goodbye!\n"))
 
     def test_keyboard_interrupt_still_clears_screen_and_says_goodbye(
         self,
@@ -263,7 +274,7 @@ class InteractiveLoopTests(unittest.TestCase):
             getch.return_value.side_effect = KeyboardInterrupt
             interactive.run_interactive(2, 2, (0, 0), (1, 1), False, 42)
         self.assertEqual(getch.return_value.call_count, 1)
-        self.assertTrue(stdout.getvalue().endswith(_CLEAR + "¡Hasta luego!\n"))
+        self.assertTrue(stdout.getvalue().endswith(_CLEAR + "Goodbye!\n"))
 
     def test_read_failure_propagates_after_final_screen_cleanup(self) -> None:
         stdout = StringIO()
@@ -274,7 +285,7 @@ class InteractiveLoopTests(unittest.TestCase):
         ):
             getch.return_value.side_effect = OSError("input failed")
             interactive.run_interactive(2, 2, (0, 0), (1, 1), False, 42)
-        self.assertTrue(stdout.getvalue().endswith(_CLEAR + "¡Hasta luego!\n"))
+        self.assertTrue(stdout.getvalue().endswith(_CLEAR + "Goodbye!\n"))
 
 
 @unittest.skipUnless(sys.platform.startswith("linux"), "Requires Linux PTY")

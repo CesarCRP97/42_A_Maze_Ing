@@ -25,7 +25,7 @@ def _run_interactive_mode(config: MazeConfig) -> int:
     except KeyboardInterrupt:
         pass
     except Exception as error:
-        print(f"Error en modo interactivo: {error}", file=sys.stderr)
+        print(f"Interactive mode error: {error}", file=sys.stderr)
         return 1
     return 0
 
@@ -33,15 +33,15 @@ def _run_interactive_mode(config: MazeConfig) -> int:
 def _run_generation_mode(config: MazeConfig) -> int:
     """Run the standard maze generation mode."""
     lines = [
-        "Configuración cargada:",
-        f"Tamaño: {config.width}x{config.height}",
-        f"Entrada: {config.entry[0]},{config.entry[1]}",
-        f"Salida: {config.exit[0]},{config.exit[1]}",
-        f"Perfecto: {'sí' if config.perfect else 'no'}",
-        f"Archivo de salida: {config.output_file}",
+        "Configuration loaded:",
+        f"Size: {config.width}x{config.height}",
+        f"Entry: {config.entry[0]},{config.entry[1]}",
+        f"Exit: {config.exit[0]},{config.exit[1]}",
+        f"Perfect: {'yes' if config.perfect else 'no'}",
+        f"Output file: {config.output_file}",
     ]
     if config.seed is not None:
-        lines.append(f"Semilla: {config.seed}")
+        lines.append(f"Seed: {config.seed}")
 
     generator = MazeGenerator(seed=config.seed)
     if config.perfect:
@@ -62,12 +62,12 @@ def _run_generation_mode(config: MazeConfig) -> int:
         write_maze(maze, config.output_file)
     except OSError as error:
         print(
-            f"No se pudo escribir el archivo de salida: {error}",
+            f"Could not write the output file: {error}",
             file=sys.stderr,
         )
         raise SystemExit(2)
 
-    lines.append(f"Laberinto generado y escrito en: {config.output_file}")
+    lines.append(f"Maze generated and written to: {config.output_file}")
     print("\n".join(lines))
     return 0
 
@@ -75,17 +75,17 @@ def _run_generation_mode(config: MazeConfig) -> int:
 def main() -> int:
     """Main entry point for the A-Maze-ing maze generator."""
     parser = argparse.ArgumentParser(
-        description="Generador de laberintos A-Maze-ing",
+        description="A-Maze-ing maze generator",
     )
     parser.add_argument(
         "config",
-        help="Ruta al archivo de configuración KEY=VALUE",
+        help="Path to the KEY=VALUE configuration file",
     )
     parser.add_argument(
         "-i",
         "--interactive",
         action="store_true",
-        help="Ejecutar visualizador interactivo en terminal",
+        help="Run the interactive terminal visualizer",
     )
 
     args = parser.parse_args()
