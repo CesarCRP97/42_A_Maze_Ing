@@ -149,6 +149,50 @@ class MazeGeneratorTests(unittest.TestCase):
         ):
             generator.generate_perfect(9, 7, (1, 1), (8, 6))
 
+    def test_generates_a_loop_enabled_maze_with_a_cycle(self) -> None:
+        maze = MazeGenerator(seed=42).generate_imperfect(3, 3, (0, 0), (2, 2))
+
+        self.assertGreater(
+            count_open_internal_passages(maze),
+            maze.width * maze.height - 1,
+        )
+
+    def test_preserves_cyclic_open_and_protected_closed_passages(self) -> None:
+        required_open = [
+            ((0, 0), Direction.EAST),
+            ((1, 0), Direction.SOUTH),
+            ((0, 1), Direction.EAST),
+            ((0, 0), Direction.SOUTH),
+        ]
+        protected_closed = [((2, 1), Direction.SOUTH)]
+
+        maze = MazeGenerator(seed=42).generate_imperfect(
+            3,
+            3,
+            (0, 0),
+            (2, 2),
+            required_open_passages=required_open,
+            protected_closed_passages=protected_closed,
+        )
+
+        for coordinate, direction in required_open:
+            with self.subTest(passage=(coordinate, direction)):
+                self.assertFalse(maze.cell_at(coordinate).has_wall(direction))
+        for coordinate, direction in protected_closed:
+            with self.subTest(passage=(coordinate, direction)):
+                self.assertTrue(maze.cell_at(coordinate).has_wall(direction))
+
+    def test_preserves_pattern42_connectivity_and_boundaries(self) -> None:
+        maze = MazeGenerator(seed=42).generate_imperfect(9, 7, (0, 0), (8, 6))
+
+        self.assertEqual(
+            sum(cell.blocked for row in maze.cells for cell in row),
+            20,
+        )
+        self.assertTrue(maze._has_full_connectivity())
+        self.assertTrue(maze._has_symmetric_shared_walls())
+        self.assertTrue(maze._has_closed_external_borders())
+
     def test_same_seed_produces_the_same_wall_layout(self) -> None:
         first = MazeGenerator(seed=42).generate_perfect(4, 3, (0, 0), (3, 2))
         second = MazeGenerator(seed=42).generate_perfect(4, 3, (0, 0), (3, 2))

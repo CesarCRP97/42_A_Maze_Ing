@@ -202,3 +202,109 @@ class MazeGenerator(BaseModel):
             exit=exit,
             cells=maze.cells,
         )
+
+    def generate_imperfect(
+        self,
+        width: int,
+        height: int,
+        entry: Coordinate,
+        exit: Coordinate,
+        required_open_passages: Iterable[Passage] = (),
+        protected_closed_passages: Iterable[Passage] = (),
+    ) -> Maze:
+        """Generate a connected maze with deliberately retained cycles."""
+        self._validate_request(width, height, entry, exit)
+        random_source = Random(self.seed)
+        open_maze = self._new_open_maze(width, height)
+        maze = Maze(
+            width=width,
+            height=height,
+            entry=entry,
+            exit=exit,
+            cells=open_maze.cells,
+        )
+        Pattern42.apply(maze)
+        required_open = self._normalize_passages(
+            maze,
+            required_open_passages,
+            "Required open passages",
+        )
+        protected_closed = self._normalize_passages(
+            maze,
+            protected_closed_passages,
+            "Protected closed passages",
+        )
+        if required_open & protected_closed:
+            raise ValueError(
+                "A passage cannot be both required open and closed."
+            )
+
+        passages: list[Passage] = []
+        for row in maze.cells:
+            for cell in row:
+                if cell.blocked:
+                    continue
+                for direction in (Direction.EAST, Direction.SOUTH):
+                    coordinate = (cell.x, cell.y)
+                    neighbor = maze.neighbor_coordinates(
+                        *coordinate,
+                        direction,
+                    )
+                    if neighbor is None or maze.cell_at(neighbor).blocked:
+                        continue
+                    passages.append((coordinate, direction))
+        parent = {
+            (cell.x, cell.y): (cell.x, cell.y)
+            for row in maze.cells
+            for cell in row
+            if not cell.blocked
+        }
+        selected_passages = set(required_open)
+        for coordinate, direction in required_open:
+            neighbor = maze.neighbor_coordinates(*coordinate, direction)
+            if neighbor is not None:
+                source_root = self._root(parent, coordinate)
+                neighbor_root = self._root(parent, neighbor)
+                if source_root != neighbor_root:
+                    parent[source_root] = neighbor_root
+
+        candidates: list[Passage] = []
+        for passage in passages:
+            if passage in selected_passages or passage in protected_closed:
+                continue
+            candidates.append(passage)
+        random_source.shuffle(candidates)
+        for coordinate, direction in candidates:
+            neighbor = maze.neighbor_coordinates(*coordinate, direction)
+            if neighbor is None:
+                continue
+            source_root = self._root(parent, coordinate)
+            neighbor_root = self._root(parent, neighbor)
+            if source_root != neighbor_root:
+                parent[source_root] = neighbor_root
+                selected_passages.add((coordinate, direction))
+
+        roots = {self._root(parent, coordinate) for coordinate in parent}
+        if len(roots) != 1:
+            raise ValueError("Protected closed passages disconnect the maze.")
+
+        cycle_candidates = [
+            passage
+            for passage in candidates
+            if passage not in selected_passages
+        ]
+        if cycle_candidates:
+            selected_passages.add(cycle_candidates[0])
+        elif len(selected_passages) <= len(parent) - 1:
+            raise ValueError("No passage is available to create a cycle.")
+
+        for coordinate, direction in passages:
+            if (coordinate, direction) not in selected_passages:
+                maze.close_passage(*coordinate, direction)
+        return Maze(
+            width=width,
+            height=height,
+            entry=entry,
+            exit=exit,
+            cells=maze.cells,
+        )
