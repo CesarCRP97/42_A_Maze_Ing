@@ -111,11 +111,9 @@ def _find_solution(maze: Maze) -> list[Direction]:
         cell = maze.cell_at(coordinate)
         for direction in Direction:
             neighbor = maze.neighbor_coordinates(x, y, direction)
-            if (
-                neighbor is not None
-                and neighbor not in visited
-                and not cell.has_wall(direction)
-            ):
+            if neighbor is None:
+                continue
+            if neighbor not in visited and not cell.has_wall(direction):
                 visited.add(neighbor)
                 previous[neighbor] = (coordinate, direction)
                 pending.append(neighbor)

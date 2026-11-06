@@ -33,7 +33,7 @@ class MazeConfigTests(unittest.TestCase):
         self.assertIsInstance(config, BaseModel)
         self.assertEqual(config.entry, (0, 0))
         with self.assertRaises(ValidationError):
-            setattr(config, "width", 4)
+            config.width = 4
 
     def test_invalid_boolean_raises_config_error(self) -> None:
         with TemporaryDirectory() as temporary_directory:
