@@ -1,5 +1,6 @@
 """ASCII rendering utilities for maze visualization."""
 
-from visualizer.ascii_display import render_maze
+from .ascii_display import render_maze
+from .interactive import run_interactive
 
-__all__ = ["render_maze"]
+__all__ = ["render_maze", "run_interactive"]
