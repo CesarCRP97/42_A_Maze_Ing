@@ -1,5 +1,7 @@
 """Placement and application of the structural 42 pattern."""
 
+import sys
+
 from mazegen.maze import Maze
 
 
@@ -15,10 +17,24 @@ class Pattern42:
     )
 
     @staticmethod
-    def apply(maze: Maze) -> None:
-        """Block every marked cell of the centered 42 mask."""
+    def apply(maze: Maze, quiet: bool = False) -> bool:
+        """Block every marked cell of the centered 42 mask.
+
+        Args:
+            maze: The maze to apply the pattern to.
+            quiet: If True, don't print warning messages.
+
+        Returns:
+            True if the pattern was applied, False if omitted due to size.
+        """
         if maze.width < 9 or maze.height < 7:
-            return
+            if not quiet:
+                print(
+                    "Aviso: Laberinto demasiado pequeño para el patrón 42 "
+                    f"({maze.width}x{maze.height} < 9x7). Patrón omitido.",
+                    file=sys.stderr,
+                )
+            return False
         origin_x = (maze.width - len(Pattern42.MASK[0])) // 2
         origin_y = (maze.height - len(Pattern42.MASK)) // 2
         blocked_coordinates = [
@@ -35,3 +51,4 @@ class Pattern42:
             )
         for block_x, block_y in blocked_coordinates:
             maze.block_cell(block_x, block_y)
+        return True
