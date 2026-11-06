@@ -106,8 +106,8 @@ def parse_config(filepath: str | Path) -> MazeConfig:
     try:
         with path.open("r", encoding="utf-8") as f:
             for line_num, line in enumerate(f, 1):
-                clean_line = line.split("#")[0].strip()
-                if not clean_line:
+                clean_line = line.strip()
+                if not clean_line or clean_line.startswith("#"):
                     continue
 
                 if "=" not in clean_line:

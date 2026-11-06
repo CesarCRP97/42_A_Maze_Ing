@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 
 from config_parser import ConfigError, MazeConfig, parse_config
@@ -43,24 +44,32 @@ def _run_generation_mode(config: MazeConfig) -> int:
     if config.seed is not None:
         lines.append(f"Seed: {config.seed}")
 
-    generator = MazeGenerator(seed=config.seed)
-    if config.perfect:
-        maze = generator.generate_perfect(
-            config.width,
-            config.height,
-            config.entry,
-            config.exit,
+    try:
+        generator = MazeGenerator(seed=config.seed)
+        if config.perfect:
+            maze = generator.generate_perfect(
+                config.width,
+                config.height,
+                config.entry,
+                config.exit,
+            )
+        else:
+            maze = generator.generate_imperfect(
+                config.width,
+                config.height,
+                config.entry,
+                config.exit,
+            )
+    except ValueError as error:
+        print(
+            f"Could not generate the maze: {error}",
+            file=sys.stderr,
         )
-    else:
-        maze = generator.generate_imperfect(
-            config.width,
-            config.height,
-            config.entry,
-            config.exit,
-        )
+        raise SystemExit(2)
+
     try:
         write_maze(maze, config.output_file)
-    except OSError as error:
+    except (OSError, ValueError) as error:
         print(
             f"Could not write the output file: {error}",
             file=sys.stderr,
@@ -68,12 +77,21 @@ def _run_generation_mode(config: MazeConfig) -> int:
         raise SystemExit(2)
 
     lines.append(f"Maze generated and written to: {config.output_file}")
-    print("\n".join(lines))
+    try:
+        print("\n".join(lines), flush=True)
+    except BrokenPipeError as error:
+        with open(os.devnull, "w") as null_output:
+            os.dup2(null_output.fileno(), sys.stdout.fileno())
+        print(f"Could not display the output: {error}", file=sys.stderr)
+        raise SystemExit(2)
+    except UnicodeEncodeError as error:
+        print(f"Could not display the output: {error}", file=sys.stderr)
+        raise SystemExit(2)
     return 0
 
 
-def main() -> int:
-    """Main entry point for the A-Maze-ing maze generator."""
+def _main() -> int:
+    """Parse arguments and run the requested maze generation mode."""
     parser = argparse.ArgumentParser(
         description="A-Maze-ing maze generator",
     )
@@ -98,6 +116,18 @@ def main() -> int:
     if args.interactive:
         return _run_interactive_mode(config)
     return _run_generation_mode(config)
+
+
+def main() -> int:
+    """Run the CLI and report unexpected application errors cleanly."""
+    try:
+        return _main()
+    except Exception as error:
+        print(
+            f"Unexpected {type(error).__name__}: {error}",
+            file=sys.stderr,
+        )
+        return 1
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ from mazegen.maze import Direction, Maze
 from mazegen.types import Coordinate
 
 _RESET = "\033[0m"
-_WALL_COLOR = "\033[38;5;51m"
+_WALL_COLOR = 51
 _PATH_COLOR = "\033[38;5;198m"
 _ENTRY_COLOR = "\033[38;5;226m"
 _EXIT_COLOR = "\033[38;5;201m"
@@ -19,6 +19,7 @@ def render_maze(
     *,
     show_solution: bool = True,
     use_color: bool = True,
+    wall_color: int = _WALL_COLOR,
 ) -> str:
     """Render a maze with its endpoints, blocked cells, and optional route.
 
@@ -27,6 +28,7 @@ def render_maze(
         solution: Directions from the maze entry to its exit.
         show_solution: Whether to mark the supplied route.
         use_color: Whether to apply the Synthwave ANSI color palette.
+        wall_color: ANSI 256-color code for walls (cyan by default).
 
     Returns:
         A multiline ASCII representation of the maze.
@@ -36,6 +38,7 @@ def render_maze(
             or blocked cell, or does not end at the maze exit.
     """
     path_cells = _solution_cells(maze, solution)
+    wall_ansi = f"\033[38;5;{wall_color}m"
 
     def paint(text: str, color: str) -> str:
         """Apply an ANSI foreground color when color output is enabled."""
@@ -48,14 +51,14 @@ def render_maze(
         north_walls = ["+"]
         for cell in row:
             segment = "---" if cell.has_wall(Direction.NORTH) else "   "
-            north_walls.append(paint(segment, _WALL_COLOR))
+            north_walls.append(paint(segment, wall_ansi))
             north_walls.append("+")
         lines.append("".join(north_walls))
 
         interior: list[str] = []
         for x, cell in enumerate(row):
             west_wall = "|" if cell.has_wall(Direction.WEST) else " "
-            interior.append(paint(west_wall, _WALL_COLOR))
+            interior.append(paint(west_wall, wall_ansi))
 
             coordinate = (x, y)
             if coordinate == maze.entry:
@@ -71,13 +74,13 @@ def render_maze(
             interior.append(marker)
 
         east_wall = "|" if row[-1].has_wall(Direction.EAST) else " "
-        interior.append(paint(east_wall, _WALL_COLOR))
+        interior.append(paint(east_wall, wall_ansi))
         lines.append("".join(interior))
 
     south_walls = ["+"]
     for cell in maze.cells[-1]:
         segment = "---" if cell.has_wall(Direction.SOUTH) else "   "
-        south_walls.append(paint(segment, _WALL_COLOR))
+        south_walls.append(paint(segment, wall_ansi))
         south_walls.append("+")
     lines.append("".join(south_walls))
     return "\n".join(lines)

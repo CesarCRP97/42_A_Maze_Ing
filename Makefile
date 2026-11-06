@@ -4,7 +4,7 @@ PYTHON := $(VENV)/bin/python
 PIP := $(PYTHON) -m pip
 CONFIG ?= config.txt
 
-.PHONY: venv install run debug clean lint test demo check
+.PHONY: venv install run debug clean lint test demo check package
 
 venv:
 	@test -x "$(PYTHON)" || $(SYSTEM_PYTHON) -m venv "$(VENV)"
@@ -20,7 +20,7 @@ debug: install
 
 clean:
 	find . -path "./$(VENV)" -prune -o -type d -name "__pycache__" -prune -exec rm -rf {} +
-	rm -rf .mypy_cache .pytest_cache build dist *.egg-info *.whl *.tar.gz
+	rm -rf .mypy_cache .pytest_cache build
 
 lint: install
 	$(PYTHON) -m flake8 --ignore= --exclude="$(VENV)" .
@@ -33,3 +33,7 @@ demo: install
 	$(PYTHON) -m tests.test_visualizer --demo
 
 check: lint test
+
+package: install
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m build --no-isolation --outdir .
+	rm -rf build

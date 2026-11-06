@@ -59,6 +59,24 @@ class MazeRendererTests(unittest.TestCase):
         self.assertIn("\033[38;5;226m", colored)
         self.assertIn("\033[38;5;201m", colored)
 
+    def test_wall_color_is_configurable_without_changing_other_markers(
+        self,
+    ) -> None:
+        maze = Maze.create_open(width=2, height=2)
+        route = [Direction.EAST, Direction.SOUTH]
+        default = render_maze(maze, route)
+        custom = render_maze(maze, route, wall_color=208)
+
+        self.assertEqual(
+            custom, default.replace("\033[38;5;51m", "\033[38;5;208m")
+        )
+        for wall in ("---", "|"):
+            self.assertIn(f"\033[38;5;208m{wall}\033[0m", custom)
+        self.assertEqual(
+            render_maze(maze, route, use_color=False, wall_color=208),
+            render_maze(maze, route, use_color=False),
+        )
+
     def test_renders_blocked_cells(self) -> None:
         maze = Maze.create_open(width=3, height=3)
         maze.block_cell(1, 1)

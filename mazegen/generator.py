@@ -163,7 +163,31 @@ class MazeGenerator(BaseModel):
         required_open_passages: Iterable[Passage] = (),
         protected_closed_passages: Iterable[Passage] = (),
     ) -> Maze:
-        """Generate a perfect maze while honoring explicit wall constraints."""
+        """Generate a perfect maze while honoring explicit wall constraints.
+
+        Pattern42 is centered when it fits; otherwise a warning is printed
+        to stderr. A randomized Kruskal spanning tree connects every walkable
+        cell with exactly one route between any two cells. The generator's
+        seed reproduces the same layout for the same request.
+
+        Args:
+            width: Number of columns, at least two.
+            height: Number of rows, at least two.
+            entry: Walkable entry coordinates inside the maze.
+            exit: Walkable exit coordinates, distinct from the entry.
+            required_open_passages: Internal passages that must stay open.
+            protected_closed_passages: Internal walls that must stay closed.
+
+        Returns:
+            A connected, acyclic maze with symmetric shared walls and closed
+            external borders. Blocked pattern cells are excluded from paths.
+
+        Raises:
+            ValueError: If dimensions or endpoints are invalid, an endpoint
+                overlaps Pattern42, passage constraints are invalid or
+                conflicting, required passages form a cycle, or protected
+                walls disconnect the walkable cells.
+        """
         self._validate_request(width, height, entry, exit)
         random_source = Random(self.seed)
         open_maze = self._new_open_maze(width, height)
@@ -174,7 +198,7 @@ class MazeGenerator(BaseModel):
             exit=exit,
             cells=open_maze.cells,
         )
-        Pattern42.apply(maze, quiet=True)
+        Pattern42.apply(maze, quiet=False)
         required_open = self._normalize_passages(
             maze,
             required_open_passages,
@@ -214,16 +238,13 @@ class MazeGenerator(BaseModel):
     ) -> Maze:
         """Generate a connected maze with deliberately retained cycles.
 
-        Apply Pattern42, warning when the grid is too small, then normalize
-        user constraints. For each walkable corner and the center, preserve
-        an adjacent passage that does not conflict with a protected wall.
-        Normalize these passages and merge them with required user passages.
-
-        First connect components with a spanning tree. Next, target at least
-        two additional cycles when available passages permit it. Finally,
-        retain each remaining candidate with probability 0.5 to reduce dead
-        ends. Close unselected passages and repair fully open 3x3 areas while
-        preserving required passages and connectivity.
+        Apply Pattern42, warning when the grid is too small, then build a
+        randomized spanning tree around the required passages. Retain extra
+        edges for loops and braid remaining dead ends using optional edges.
+        Repair fully open 3x3 areas without introducing dead ends or breaking
+        connectivity. Finally verify at least two independent cycles and at
+        most two dead ends, excluding blocked pattern cells. The mask leaves
+        all corners and the center walkable; connectivity keeps them usable.
 
         Args:
             width: Number of columns, at least two.
@@ -238,7 +259,9 @@ class MazeGenerator(BaseModel):
 
         Raises:
             ValueError: If dimensions, endpoints, or constraints are invalid,
-                or required passages force a completely open 3x3 area.
+                two cycles are unavailable, protected walls force more than
+                two dead ends, or a 3x3 area cannot be repaired safely while
+                preserving required passages.
         """
         self._validate_request(width, height, entry, exit)
         random_source = Random(self.seed)
@@ -253,49 +276,16 @@ class MazeGenerator(BaseModel):
 
         Pattern42.apply(maze, quiet=False)
 
-        user_required_open = self._normalize_passages(
+        required_open = self._normalize_passages(
             maze,
             required_open_passages,
             "Required open passages",
         )
-        user_protected_closed = self._normalize_passages(
+        protected_closed = self._normalize_passages(
             maze,
             protected_closed_passages,
             "Protected closed passages",
         )
-
-        corner_center_passages: list[Passage] = []
-        corners_and_center = [
-            (0, 0),
-            (width - 1, 0),
-            (0, height - 1),
-            (width - 1, height - 1),
-            (width // 2, height // 2),
-        ]
-        for cx, cy in corners_and_center:
-            if not maze.cell_at((cx, cy)).blocked:
-                for direction in Direction:
-                    neighbor = maze.neighbor_coordinates(cx, cy, direction)
-                    if neighbor is None or maze.cell_at(neighbor).blocked:
-                        continue
-                    test_passage = ((cx, cy), direction)
-                    if direction in (Direction.EAST, Direction.SOUTH):
-                        normalized = test_passage
-                    else:
-                        normalized = (neighbor, direction.opposite)
-                    if normalized in user_protected_closed:
-                        continue
-                    maze.open_passage(cx, cy, direction)
-                    corner_center_passages.append(((cx, cy), direction))
-                    break
-
-        corner_center_normalized = self._normalize_passages(
-            maze,
-            corner_center_passages,
-            "Corner/center passages",
-        )
-        required_open = user_required_open | corner_center_normalized
-        protected_closed = user_protected_closed
 
         if required_open & protected_closed:
             raise ValueError(
@@ -375,8 +365,39 @@ class MazeGenerator(BaseModel):
             if (coordinate, direction) not in selected_passages:
                 maze.close_passage(*coordinate, direction)
 
+        # Opening an optional edge incident to a leaf removes that dead end
+        # without threatening connectivity or any protected wall.
+        for coordinate, direction in candidates:
+            cell = maze.cell_at(coordinate)
+            neighbor = maze.neighbor_coordinates(*coordinate, direction)
+            if neighbor is None or not cell.has_wall(direction):
+                continue
+            neighbor_cell = maze.cell_at(neighbor)
+            if len(cell.walls) == 3 or len(neighbor_cell.walls) == 3:
+                maze.open_passage(*coordinate, direction)
+
         if self._has_3x3_open_area(maze):
             self._fix_3x3_open_areas(maze, random_source, required_open)
+
+        walkable_count = sum(
+            not cell.blocked for row in maze.cells for cell in row
+        )
+        open_count = sum(
+            not maze.cell_at(coordinate).has_wall(direction)
+            for coordinate, direction in passages
+        )
+        if open_count - walkable_count + 1 < 2:
+            raise ValueError(
+                "Imperfect mazes require at least two independent cycles."
+            )
+        dead_ends = sum(
+            len(cell.walls) == 3
+            for row in maze.cells for cell in row if not cell.blocked
+        )
+        if dead_ends > 2:
+            raise ValueError(
+                "Protected closed passages force more than two dead ends."
+            )
 
         return Maze(
             width=width,
@@ -441,8 +462,10 @@ class MazeGenerator(BaseModel):
 
         Skip squares containing blocked cells or fewer than twelve open
         internal passages. For each fully open square, close one optional
-        passage. One closure suffices; alternate paths within the square
-        preserve connectivity without removing unnecessary cycles.
+        passage whose endpoints both have degree at least three. Alternate
+        paths within the square preserve connectivity, and the degree bound
+        avoids introducing dead ends. A full 3x3 has four independent cycles,
+        so this closure cannot reduce the maze below two cycles.
 
         Args:
             maze: Maze to modify in place.
@@ -450,8 +473,8 @@ class MazeGenerator(BaseModel):
             required_open_passages: Normalized passages that must stay open.
 
         Raises:
-            ValueError: If every internal passage of an open 3x3 area is
-                required to remain open.
+            ValueError: If required passages leave no optional internal edge
+                that can be closed without introducing a dead end.
         """
         for y in range(maze.height - 2):
             for x in range(maze.width - 2):
@@ -493,13 +516,22 @@ class MazeGenerator(BaseModel):
                 if len(internal_passages) != 12:
                     continue
 
-                optional_passages = [
-                    passage for passage in internal_passages
-                    if passage not in required_open_passages
-                ]
+                optional_passages = []
+                for coordinate, direction in internal_passages:
+                    if (coordinate, direction) in required_open_passages:
+                        continue
+                    dx, dy = direction.delta
+                    neighbor = (coordinate[0] + dx, coordinate[1] + dy)
+                    walls = max(
+                        len(maze.cell_at(coordinate).walls),
+                        len(maze.cell_at(neighbor).walls),
+                    )
+                    if walls <= 1:
+                        optional_passages.append((coordinate, direction))
                 if not optional_passages:
                     raise ValueError(
-                        "Required open passages force a 3x3 open area."
+                        "Required open passages prevent repairing a 3x3 "
+                        "open area without introducing dead ends."
                     )
 
                 coordinate, direction = random_source.choice(optional_passages)

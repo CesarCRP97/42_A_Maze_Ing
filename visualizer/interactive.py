@@ -2,8 +2,7 @@
 
 Attributes:
     COLOR_PALETTE: Named Synthwave colors expressed as ANSI 256-color codes.
-    COLOR_OPTIONS: Ordered colors available to the color-cycling helpers.
-    _color_indices: Current color-option index for each maze element.
+    COLOR_OPTIONS: Ordered colors available for interactive wall cycling.
 
 Running this module directly starts a demonstration maze.
 """
@@ -77,6 +76,7 @@ class VisualizerState:
     config_perfect: bool
     config_seed: int | None
     last_action: str = ""
+    wall_color_index: int = 0
 
 
 COLOR_PALETTE = {
@@ -118,26 +118,15 @@ COLOR_OPTIONS = [
     COLOR_PALETTE["yellow"],
 ]
 
-_color_indices = {
-    "wall": 0,
-    "path": 1,
-    "entry": 2,
-    "exit": 3,
-    "blocked": 4,
-    "pattern42": 5,
-}
 
-
-def _cycle_color(name: str) -> int:
-    """Return the next color in the cycle for the given element."""
-    idx = _color_indices[name]
-    _color_indices[name] = (idx + 1) % len(COLOR_OPTIONS)
-    return COLOR_OPTIONS[_color_indices[name]]
-
-
-def _get_color(name: str) -> int:
-    """Get current color for element."""
-    return COLOR_OPTIONS[_color_indices[name]]
+def _cycle_wall_color(state: VisualizerState) -> VisualizerState:
+    """Advance the state's wall palette without changing its maze or route."""
+    index = (state.wall_color_index + 1) % len(COLOR_OPTIONS)
+    return replace(
+        state,
+        wall_color_index=index,
+        last_action=f"Wall color: {COLOR_OPTIONS[index]}",
+    )
 
 
 def _build_initial_state(
@@ -232,11 +221,12 @@ def _render_state(state: VisualizerState) -> str:
         solution=state.solution if state.show_solution else None,
         show_solution=state.show_solution,
         use_color=state.use_color,
+        wall_color=COLOR_OPTIONS[state.wall_color_index % len(COLOR_OPTIONS)],
     )
 
     mode_str = "Perfect" if state.config_perfect else "Imperfect"
     gen_seed = state.generator.seed
-    seed_str = str(gen_seed) if gen_seed else "random"
+    seed_str = str(gen_seed) if gen_seed is not None else "random"
 
     help_lines = [
         "",
@@ -246,13 +236,14 @@ def _render_state(state: VisualizerState) -> str:
         "Controls:",
         "  R - Regenerate maze (new seed)",
         "  S - Show/Hide solution",
-        "  C - Toggle colors ON/OFF",
-        "  Q - Quit",
+        "  C - Cycle wall color",
+        "  N - Toggle colors ON/OFF",
+        "  Q / Esc / Ctrl-C - Quit",
         "",
     ]
 
     if state.last_action:
-        help_lines.insert(0, f"→ {state.last_action}")
+        help_lines.insert(0, f"-> {state.last_action}")
         help_lines.insert(1, "")
 
     return maze_str + "\n" + "\n".join(help_lines)
@@ -261,18 +252,21 @@ def _render_state(state: VisualizerState) -> str:
 def _handle_key(state: VisualizerState, key: bytes) -> VisualizerState | None:
     """Handle a case-insensitive keyboard command.
 
-    R regenerates the maze, S toggles the solution, and C toggles colors.
-    Q and Escape return None to quit; other keys leave the state unchanged.
+    R regenerates the maze, S toggles the solution, C cycles wall colors,
+    and N toggles color output.
+    Q, Escape, and raw Ctrl-C return None to quit; other keys do nothing.
     """
     key_str = key.decode("utf-8", errors="ignore").lower()
 
-    if key_str in ("q", "\x1b"):
+    if key_str in ("q", "\x1b", "\x03"):
         return None
     if key_str == "r":
         return _regenerate_maze(state)
     if key_str == "s":
         return _toggle_solution(state)
     if key_str == "c":
+        return _cycle_wall_color(state)
+    if key_str == "n":
         return _toggle_color_mode(state)
     return state
 

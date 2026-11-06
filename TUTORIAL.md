@@ -38,7 +38,7 @@ Las rutas relativas de configuración y salida se interpretan desde el directori
 
 ## 2. Configurar el laberinto
 
-El `config.txt` incluido contiene:
+Ejemplo de configuración (el archivo local puede tener otros valores):
 
 ```ini
 WIDTH=20
@@ -62,7 +62,9 @@ Las coordenadas empiezan en cero: `0,0` es la esquina superior izquierda. `x` au
 
 Puedes añadir, por ejemplo, `SEED=42`. Si omites `SEED`, la generación usa aleatoriedad sin una semilla fija. Se aceptan líneas vacías y comentarios con `#`.
 
-El patrón 42 se forma bloqueando celdas en el centro. Necesita al menos 9 columnas y 7 filas; en tableros menores se omite. Actualmente el modo imperfecto muestra un aviso al omitirlo, mientras que el perfecto lo omite silenciosamente.
+El patrón 42 se forma con celdas bloqueadas, dejando transitable el centro
+del tablero. Si no cabe la máscara completa con su margen, se omite y se
+muestra un aviso tanto en modo perfecto como imperfecto.
 
 ## 3. Visualización interactiva
 
@@ -78,8 +80,9 @@ También puedes usar `-i` en lugar de `--interactive`.
 | --- | --- |
 | `R` | Generar otro laberinto con las mismas dimensiones, extremos y modo. |
 | `S` | Mostrar u ocultar la solución. |
-| `C` | Activar o desactivar los colores ANSI. |
-| `Q` o `Esc` | Salir. |
+| `C` | Cambiar el color de las paredes. |
+| `N` | Activar o desactivar los colores ANSI. |
+| `Q`, `Esc` o `Ctrl+C` | Salir. |
 
 No necesitas pulsar Enter. La solución y los colores están activados inicialmente. `R` genera sin semilla fija, aunque hayas configurado `SEED`.
 
@@ -103,7 +106,7 @@ config.txt → config_parser.py → MazeGenerator → Maze
 | `config_parser.py` | Lee `KEY=VALUE`, convierte tipos y comprueba claves, coordenadas y valores. Devuelve un `MazeConfig` inmutable de Pydantic. |
 | `mazegen/types.py` | Define el tipo compartido de coordenadas. |
 | `mazegen/maze.py` | Define `Cell`, `Maze` y `Direction`. Representa celdas, paredes y bloqueos; comprueba estructura, muros compartidos, bordes cerrados y conectividad. |
-| `mazegen/generator.py` | Genera el tablero. El modo perfecto selecciona conexiones sin ciclos mediante Union-Find; el imperfecto conecta las celdas, añade ciclos e intenta reducir callejones y eliminar áreas 3×3 completamente abiertas. |
+| `mazegen/generator.py` | Genera el tablero. El perfecto selecciona conexiones sin ciclos mediante Union-Find; el imperfecto añade ciclos, reduce callejones y comprueba las propiedades finales. |
 | `mazegen/pattern42.py` | Coloca el patrón 42 centrado mediante celdas bloqueadas. |
 | `mazegen/solver.py` | Usa BFS: explora por distancia y reconstruye una ruta mínima de entrada a salida. Devuelve direcciones, o `None` si no hay ruta. |
 | `output_writer.py` | Revalida el laberinto, calcula su solución y escribe la representación hexadecimal. |
@@ -138,22 +141,30 @@ make debug   # Arranque bajo el depurador pdb
 
 Estos objetivos de Make, salvo `clean`, dependen de la instalación. En `pdb`, `n` avanza, `s` entra en una función, `c` continúa y `q` termina.
 
-`make clean` elimina cachés y artefactos de construcción, pero también `dist/` y `*.egg-info`, actualmente versionados: puede dejar eliminaciones visibles en Git. No lo necesitas para ejecutar el programa.
+`make clean` elimina cachés y el directorio temporal `build/`. Conserva los
+paquetes entregables y los metadatos actualmente versionados.
 
 ## 7. Validaciones y límites
 
 El parser rechaza dimensiones menores que 2 antes de generar o abrir el visualizador. La CLI muestra un error de configuración, sin traceback, y termina con código 2.
 
-La API de generación imperfecta admite un tablero 2×2 con todos sus pasos internos obligatoriamente abiertos. En tableros mayores, la reparación de áreas 3×3 conserva los pasos obligatorios y solo cierra un paso opcional por área completamente abierta. Si las restricciones fuerzan los doce pasos internos de un área 3×3, son incompatibles con esa regla y se rechazan con `ValueError`.
+El modo imperfecto rechaza tableros 2×2: no pueden tener los dos ciclos
+independientes exigidos. También rechaza restricciones que impidan la
+conectividad, fuercen áreas 3×3 completamente abiertas o produzcan demasiados
+callejones sin salida. Los pasos obligatorios y paredes protegidas se
+respetan o se informa de su incompatibilidad mediante `ValueError`.
 
 Las pruebas automatizadas reducen el riesgo de regresiones, pero no garantizan ausencia de fallos. La comprobación de tipos para Windows tampoco sustituye una ejecución real en Windows.
 
 ## 8. Paquete reutilizable
 
-El código de `mazegen` se distribuye como wheel y archivo fuente en `dist/`. Desde el repositorio instalado, puedes reconstruir ambos con:
+El código de `mazegen` se entrega como wheel y archivo fuente en la raíz.
+Desde el repositorio instalado, puedes reconstruir ambos con:
 
 ```bash
-.venv/bin/python -m build --no-isolation
+make package
+# Equivalente:
+.venv/bin/python -m build --no-isolation --outdir .
 ```
 
 El wheel instala la biblioteca, no la aplicación completa. Para utilizar la CLI y el visualizador, conserva el repositorio y sigue los pasos anteriores.

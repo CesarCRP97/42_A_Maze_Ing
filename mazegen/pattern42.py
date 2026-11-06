@@ -6,14 +6,20 @@ from mazegen.maze import Maze
 
 
 class Pattern42:
-    """Block the fixed 42 mask at the center of a maze."""
+    """Block a centered 42 mask with a one-cell surrounding corridor.
+
+    Two-cell glyph openings avoid forced dead ends. The empty fifth column
+    keeps ``(width // 2, height // 2)`` walkable for either width parity.
+    """
 
     MASK = (
-        "#.#.###",
-        "#.#...#",
-        "###.###",
-        "..#.#..",
-        "..#.###",
+        "#..#.###",
+        "#..#...#",
+        "#..#...#",
+        "####.###",
+        "...#.#..",
+        "...#.#..",
+        "...#.###",
     )
 
     @staticmethod
@@ -27,11 +33,14 @@ class Pattern42:
         Returns:
             True if the pattern was applied, False if omitted due to size.
         """
-        if maze.width < 9 or maze.height < 7:
+        minimum_width = len(Pattern42.MASK[0]) + 2
+        minimum_height = len(Pattern42.MASK) + 2
+        if maze.width < minimum_width or maze.height < minimum_height:
             if not quiet:
                 print(
                     "Warning: Maze too small for the 42 pattern "
-                    f"({maze.width}x{maze.height} < 9x7). Pattern omitted.",
+                    f"({maze.width}x{maze.height} < "
+                    f"{minimum_width}x{minimum_height}). Pattern omitted.",
                     file=sys.stderr,
                 )
             return False
