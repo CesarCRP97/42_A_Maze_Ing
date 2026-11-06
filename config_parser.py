@@ -1,3 +1,5 @@
+"""Parse KEY=VALUE files into validated, immutable maze configurations."""
+
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
@@ -145,8 +147,8 @@ def parse_config(filepath: str | Path) -> MazeConfig:
     except ValueError as err:
         raise ConfigError(f"Data type conversion error: {err}") from err
 
-    if width <= 0 or height <= 0:
-        raise ConfigError("WIDTH and HEIGHT must be positive integers.")
+    if width < 2 or height < 2:
+        raise ConfigError("WIDTH and HEIGHT must be at least 2.")
 
     if not (0 <= entry[0] < width and 0 <= entry[1] < height):
         raise ConfigError(

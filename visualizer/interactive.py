@@ -1,8 +1,15 @@
-"""Interactive terminal-based maze visualizer (cross-platform)."""
+"""Display and interact with mazes in a terminal on Linux or Windows.
+
+Attributes:
+    COLOR_PALETTE: Named Synthwave colors expressed as ANSI 256-color codes.
+    COLOR_OPTIONS: Ordered colors available to the color-cycling helpers.
+    _color_indices: Current color-option index for each maze element.
+
+Running this module directly starts a demonstration maze.
+"""
 
 from __future__ import annotations
 
-import os
 import sys
 from dataclasses import dataclass, replace
 
@@ -13,12 +20,12 @@ from mazegen.types import Coordinate
 from visualizer.ascii_display import render_maze
 
 
-# Cross-platform getch implementation
 class Getch:
-    """Cross-platform single character input."""
+    """Read a single character using the platform's terminal facilities."""
 
     def __init__(self) -> None:
-        if os.name == "nt":
+        """Select Windows input or save the current POSIX terminal settings."""
+        if sys.platform == "win32":
             import msvcrt
 
             self._getch = msvcrt.getch
@@ -26,30 +33,31 @@ class Getch:
             import termios
 
             self._fd = sys.stdin.fileno()
-            self._old_settings = termios.tcgetattr(  # type: ignore
-                self._fd
-            )
+            self._old_settings = termios.tcgetattr(self._fd)
 
     def __call__(self) -> bytes:
-        if os.name == "nt":
+        """Read one character and restore POSIX terminal settings afterward."""
+        if sys.platform == "win32":
             return self._getch()
         import termios
         import tty
 
         try:
-            tty.setraw(self._fd)  # type: ignore[attr-defined]
+            tty.setraw(self._fd)
             return sys.stdin.read(1).encode()
         finally:
-            termios.tcsetattr(  # type: ignore[attr-defined]
+            termios.tcsetattr(
                 self._fd,
-                termios.TCSADRAIN,  # type: ignore[attr-defined]
+                termios.TCSADRAIN,
                 self._old_settings,
             )
 
     def __enter__(self) -> "Getch":
+        """Return this reader for use as a context manager."""
         return self
 
     def __exit__(self, *args: object) -> None:
+        """Leave the context; each read already restores terminal settings."""
         pass
 
 
@@ -71,7 +79,6 @@ class VisualizerState:
     last_action: str = ""
 
 
-# Synthwave color palette (ANSI 256-color codes)
 COLOR_PALETTE = {
     "synthwave_cyan": 51,
     "synthwave_magenta": 198,
@@ -92,7 +99,6 @@ COLOR_PALETTE = {
     "cyan": 51,
 }
 
-# Ordered list for cycling through colors
 COLOR_OPTIONS = [
     COLOR_PALETTE["synthwave_cyan"],
     COLOR_PALETTE["synthwave_magenta"],
@@ -112,7 +118,6 @@ COLOR_OPTIONS = [
     COLOR_PALETTE["yellow"],
 ]
 
-# Current color indices (for cycling)
 _color_indices = {
     "wall": 0,
     "path": 1,
@@ -166,8 +171,11 @@ def _build_initial_state(
 
 
 def _regenerate_maze(state: VisualizerState) -> VisualizerState:
-    """Generate a new maze with the same configuration (new random seed)."""
-    new_generator = MazeGenerator(seed=None)  # None = random seed
+    """Generate a new maze with the same configuration and no fixed seed.
+
+    A seed of None uses system randomness instead of the configured seed.
+    """
+    new_generator = MazeGenerator(seed=None)
     if state.config_perfect:
         maze = new_generator.generate_perfect(
             state.config_width,
@@ -251,10 +259,14 @@ def _render_state(state: VisualizerState) -> str:
 
 
 def _handle_key(state: VisualizerState, key: bytes) -> VisualizerState | None:
-    """Handle keyboard input. Returns new state or None to quit."""
+    """Handle a case-insensitive keyboard command.
+
+    R regenerates the maze, S toggles the solution, and C toggles colors.
+    Q and Escape return None to quit; other keys leave the state unchanged.
+    """
     key_str = key.decode("utf-8", errors="ignore").lower()
 
-    if key_str in ("q", "\x1b"):  # q or ESC
+    if key_str in ("q", "\x1b"):
         return None
     if key_str == "r":
         return _regenerate_maze(state)
@@ -273,16 +285,18 @@ def run_interactive(
     perfect: bool,
     seed: int | None = None,
 ) -> None:
-    """Run the interactive maze visualizer (cross-platform)."""
+    """Generate the initial maze and run the terminal interaction loop.
+
+    Render the current state, read a key, and apply the resulting action
+    until the user quits. Clear the terminal and print a farewell on exit.
+    """
     getch = Getch()
 
-    # Build initial state
     generator = MazeGenerator(seed=seed)
     state = _build_initial_state(
         generator, width, height, entry, exit, perfect, seed
     )
 
-    # Main loop
     try:
         while True:
             _clear_screen()
@@ -303,7 +317,6 @@ def run_interactive(
 
 
 if __name__ == "__main__":
-    # Demo run
     run_interactive(
         width=20,
         height=10,

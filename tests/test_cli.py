@@ -11,6 +11,47 @@ from a_maze_ing import main
 
 
 class CommandLineTests(unittest.TestCase):
+    def test_rejects_single_row_or_column_without_a_traceback(self) -> None:
+        for width, height in ((1, 2), (2, 1)):
+            for perfect in ("true", "false"):
+                for interactive in (False, True):
+                    with self.subTest(
+                        size=(width, height),
+                        perfect=perfect,
+                        interactive=interactive,
+                    ), TemporaryDirectory() as temporary_directory:
+                        directory = Path(temporary_directory)
+                        output_file = directory / "maze.txt"
+                        config_file = directory / "maze.conf"
+                        config_file.write_text(
+                            "\n".join(
+                                (
+                                    f"WIDTH={width}",
+                                    f"HEIGHT={height}",
+                                    "ENTRY=0,0",
+                                    f"EXIT={width - 1},{height - 1}",
+                                    f"OUTPUT_FILE={output_file}",
+                                    f"PERFECT={perfect}",
+                                )
+                            ),
+                            encoding="utf-8",
+                        )
+                        argv = ["a_maze_ing.py", str(config_file)]
+                        if interactive:
+                            argv.append("--interactive")
+                        stderr = StringIO()
+                        with (
+                            patch("sys.argv", argv),
+                            redirect_stderr(stderr),
+                            self.assertRaises(SystemExit) as raised,
+                        ):
+                            main()
+
+                        self.assertEqual(raised.exception.code, 2)
+                        self.assertIn("at least 2", stderr.getvalue())
+                        self.assertNotIn("Traceback", stderr.getvalue())
+                        self.assertFalse(output_file.exists())
+
     def test_prints_the_parsed_configuration_summary(self) -> None:
         with TemporaryDirectory() as temporary_directory:
             directory = Path(temporary_directory)

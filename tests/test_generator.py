@@ -157,6 +157,66 @@ class MazeGeneratorTests(unittest.TestCase):
             maze.width * maze.height - 1,
         )
 
+    def test_preserves_all_required_passages_in_a_two_by_two_maze(
+        self,
+    ) -> None:
+        required_open = [
+            ((0, 0), Direction.EAST),
+            ((0, 0), Direction.SOUTH),
+            ((1, 0), Direction.SOUTH),
+            ((0, 1), Direction.EAST),
+        ]
+
+        maze = MazeGenerator(seed=42).generate_imperfect(
+            2, 2, (0, 0), (1, 1), required_open_passages=required_open
+        )
+
+        for coordinate, direction in required_open:
+            self.assertFalse(maze.cell_at(coordinate).has_wall(direction))
+        self.assertEqual(count_open_internal_passages(maze), 4)
+        self.assertTrue(maze._has_full_connectivity())
+        self.assertTrue(maze._has_closed_external_borders())
+
+    def test_repairs_open_areas_without_closing_required_passages(
+        self,
+    ) -> None:
+        required_open = [
+            ((x, y), direction)
+            for y in range(3)
+            for x in range(3)
+            for direction, index in ((Direction.EAST, x), (Direction.SOUTH, y))
+            if index < 2
+        ]
+        optional = ((1, 1), Direction.EAST)
+        required_open.remove(optional)
+
+        generator = MazeGenerator(seed=42)
+        maze = generator.generate_imperfect(
+            3, 3, (0, 0), (2, 2), required_open_passages=required_open
+        )
+
+        for coordinate, direction in required_open:
+            self.assertFalse(maze.cell_at(coordinate).has_wall(direction))
+        self.assertTrue(maze.cell_at(optional[0]).has_wall(optional[1]))
+        self.assertFalse(generator._has_3x3_open_area(maze))
+        self.assertTrue(maze._has_full_connectivity())
+
+    def test_rejects_required_passages_that_force_a_three_by_three_open_area(
+        self,
+    ) -> None:
+        required_open = [
+            ((x, y), direction)
+            for y in range(3)
+            for x in range(3)
+            for direction, index in ((Direction.EAST, x), (Direction.SOUTH, y))
+            if index < 2
+        ]
+
+        with self.assertRaisesRegex(ValueError, "Required.*3x3"):
+            MazeGenerator(seed=42).generate_imperfect(
+                3, 3, (0, 0), (2, 2), required_open_passages=required_open
+            )
+
     def test_preserves_cyclic_open_and_protected_closed_passages(self) -> None:
         required_open = [
             ((0, 0), Direction.EAST),
